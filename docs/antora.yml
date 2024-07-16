@@ -1,0 +1,5 @@
+name: quarkus-json-rpc
+title: Json Rpc
+version: dev
+nav:
+  - modules/ROOT/nav.adoc

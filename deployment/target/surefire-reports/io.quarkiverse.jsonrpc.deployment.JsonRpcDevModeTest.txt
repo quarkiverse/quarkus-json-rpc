@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: io.quarkiverse.jsonrpc.deployment.JsonRpcDevModeTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.794 s -- in io.quarkiverse.jsonrpc.deployment.JsonRpcDevModeTest
