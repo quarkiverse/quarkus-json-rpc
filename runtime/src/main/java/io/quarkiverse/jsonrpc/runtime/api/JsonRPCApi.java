@@ -9,6 +9,7 @@ import java.lang.annotation.Target;
 /**
  * Marks a class as a Json-RPC Endpoint.
  * TODO: Allow adding path (from ws)?
+ * TODO: Allow adding scope
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

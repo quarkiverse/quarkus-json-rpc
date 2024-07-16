@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: io.quarkiverse.json.rpc.it.JsonRpcResourceTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 4.584 s -- in io.quarkiverse.json.rpc.it.JsonRpcResourceTest
