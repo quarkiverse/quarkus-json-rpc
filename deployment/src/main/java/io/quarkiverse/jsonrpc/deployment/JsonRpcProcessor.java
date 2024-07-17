@@ -22,6 +22,7 @@ import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
+import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.arc.deployment.BeanDefiningAnnotationBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
 import io.quarkus.deployment.annotations.BuildProducer;
@@ -39,7 +40,7 @@ import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;
 
 public class JsonRpcProcessor {
-    private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.runtime.JsonRPCApi");
+    private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi");
     private static final String FEATURE = "json-rpc";
     private static final String CONSTRUCTOR = "<init>";
     private static final String DOT = ".";
@@ -155,9 +156,9 @@ public class JsonRpcProcessor {
             //            }
         }
 
-        if (!methodsMap.isEmpty()) {
-            jsonRPCMethodsProvider.produce(new JsonRPCMethodsBuildItem(methodsMap));
-        }
+        //        if (!methodsMap.isEmpty()) {
+        jsonRPCMethodsProvider.produce(new JsonRPCMethodsBuildItem(methodsMap));
+        //        }
 
         // TODO: This needs to be send via connection init
 
@@ -176,7 +177,10 @@ public class JsonRpcProcessor {
     @Record(ExecutionTime.STATIC_INIT)
     void registerHandlers(JsonRPCRecorder recorder,
             BuildProducer<RouteBuildItem> routeProducer,
-            HttpRootPathBuildItem httpRootPathBuildItem) {
+            HttpRootPathBuildItem httpRootPathBuildItem,
+            BeanContainerBuildItem beanContainerBuildItem,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
+        recorder.createJsonRpcRouter(beanContainerBuildItem.getValue(), jsonRPCMethodsBuildItem.getMethodsMap());
 
         // Websocket for JsonRPC comms
         routeProducer.produce(

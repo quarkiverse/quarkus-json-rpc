@@ -13,7 +13,7 @@ import io.vertx.ext.web.RoutingContext;
 public class JsonRPCRecorder {
 
     public void createJsonRpcRouter(BeanContainer beanContainer,
-            Map<String, Map<JsonRPCMethodName, JsonRPCMethod>> methodsMap) {
+            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
         JsonRPCRouter jsonRpcRouter = beanContainer.beanInstance(JsonRPCRouter.class);
         jsonRpcRouter.populateJsonRPCMethods(methodsMap);
     }
