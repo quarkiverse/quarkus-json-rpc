@@ -36,41 +36,36 @@ public class JsonRPCRouter {
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
 
     private static final List<ServerWebSocket> SESSIONS = Collections.synchronizedList(new ArrayList<>());
-    private JsonRPCCodec codec;
+    private JsonRPCCodec codec = new JsonRPCCodec();
 
     /**
      * This gets called on build to build into of the classes we are going to call in runtime
      *
-     * @param extensionMethodsMap
+     * @param methodsMap
      */
-    public void populateJsonRPCMethods(Map<String, Map<JsonRPCMethodName, JsonRPCMethod>> extensionMethodsMap) {
-        for (Map.Entry<String, Map<JsonRPCMethodName, JsonRPCMethod>> extension : extensionMethodsMap.entrySet()) {
-            String extensionName = extension.getKey();
-            Map<JsonRPCMethodName, JsonRPCMethod> jsonRpcMethods = extension.getValue();
-            for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> method : jsonRpcMethods.entrySet()) {
-                JsonRPCMethodName methodName = method.getKey();
-                JsonRPCMethod jsonRpcMethod = method.getValue();
+    public void populateJsonRPCMethods(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+        for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> method : methodsMap.entrySet()) {
+            JsonRPCMethodName methodName = method.getKey();
+            JsonRPCMethod jsonRpcMethod = method.getValue();
 
-                @SuppressWarnings("unchecked")
-                Object providerInstance = Arc.container().select(jsonRpcMethod.getClazz()).get();
+            @SuppressWarnings("unchecked")
+            Object providerInstance = Arc.container().select(jsonRpcMethod.getClazz()).get();
 
-                try {
-                    Method javaMethod;
-                    Map<String, Class> params = null;
-                    if (jsonRpcMethod.hasParams()) {
-                        params = jsonRpcMethod.getParams();
-                        javaMethod = providerInstance.getClass().getMethod(jsonRpcMethod.getMethodName(),
-                                params.values().toArray(new Class[] {}));
-                    } else {
-                        javaMethod = providerInstance.getClass().getMethod(jsonRpcMethod.getMethodName());
-                    }
-                    ReflectionInfo reflectionInfo = new ReflectionInfo(jsonRpcMethod.getClazz(), providerInstance, javaMethod,
-                            params, jsonRpcMethod.getExplicitlyBlocking(), jsonRpcMethod.getExplicitlyNonBlocking());
-                    String jsonRpcMethodName = extensionName + DOT + methodName;
-                    jsonRpcToJava.put(jsonRpcMethodName, reflectionInfo);
-                } catch (NoSuchMethodException | SecurityException ex) {
-                    throw new RuntimeException(ex);
+            try {
+                Method javaMethod;
+                Map<String, Class> params = null;
+                if (jsonRpcMethod.hasParams()) {
+                    params = jsonRpcMethod.getParams();
+                    javaMethod = providerInstance.getClass().getMethod(jsonRpcMethod.getMethodName(),
+                            params.values().toArray(new Class[] {}));
+                } else {
+                    javaMethod = providerInstance.getClass().getMethod(jsonRpcMethod.getMethodName());
                 }
+                ReflectionInfo reflectionInfo = new ReflectionInfo(jsonRpcMethod.getClazz(), providerInstance, javaMethod,
+                        params, jsonRpcMethod.getExplicitlyBlocking(), jsonRpcMethod.getExplicitlyNonBlocking());
+                jsonRpcToJava.put(methodName.toString(), reflectionInfo);
+            } catch (NoSuchMethodException | SecurityException ex) {
+                throw new RuntimeException(ex);
             }
         }
     }
