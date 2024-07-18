@@ -16,9 +16,8 @@ public class JsonRPCCodec {
         return new JsonRPCRequest((JsonObject) Json.decodeValue(json));
     }
 
-    public void writeResponse(ServerWebSocket socket, int id, Object object, MessageType messageType) {
-        writeResponse(socket, new JsonRPCResponse(id,
-                new JsonRPCResponse.Result(messageType.name(), object)));
+    public void writeResponse(ServerWebSocket socket, int id, Object object) {
+        writeResponse(socket, new JsonRPCResponse(id, object));
     }
 
     public void writeMethodNotFoundResponse(ServerWebSocket socket, int id, String jsonRpcMethodName) {

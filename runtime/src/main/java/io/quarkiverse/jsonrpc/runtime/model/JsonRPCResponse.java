@@ -1,13 +1,13 @@
 package io.quarkiverse.jsonrpc.runtime.model;
 
-public class JsonRPCResponse {
+public class JsonRPCResponse<T> {
 
     // Public for serialization
     public final int id;
-    public final Result result;
+    public final T result;
     public final Error error;
 
-    public JsonRPCResponse(int id, Result result) {
+    public JsonRPCResponse(int id, T result) {
         this.id = id;
         this.result = result;
         this.error = null;
@@ -30,24 +30,6 @@ public class JsonRPCResponse {
                 "  result=" + result + "," +
                 "  error=" + error +
                 "}";
-    }
-
-    public static final class Result {
-        public final String messageType;
-        public final Object object;
-
-        public Result(String messageType, Object object) {
-            this.messageType = messageType;
-            this.object = object;
-        }
-
-        @Override
-        public String toString() {
-            return "result {" +
-                    "  messageType='" + messageType + "'," +
-                    "  object=" + object +
-                    "}";
-        }
     }
 
     public static final class Error {

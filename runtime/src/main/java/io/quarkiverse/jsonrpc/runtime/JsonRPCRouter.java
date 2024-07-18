@@ -12,11 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
-import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMessage;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest;
-import io.quarkiverse.jsonrpc.runtime.model.MessageType;
 import io.quarkus.arc.Arc;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -115,14 +113,7 @@ public class JsonRPCRouter {
     private void route(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
         String jsonRpcMethodName = jsonRpcRequest.getMethod();
 
-        // First check some internal methods
-        if (jsonRpcMethodName.equalsIgnoreCase(UNSUBSCRIBE)) {
-            if (this.subscriptions.containsKey(jsonRpcRequest.getId())) {
-                Cancellable cancellable = this.subscriptions.remove(jsonRpcRequest.getId());
-                cancellable.cancel();
-            }
-            codec.writeResponse(s, jsonRpcRequest.getId(), null, MessageType.Void);
-        } else if (this.jsonRpcToJava.containsKey(jsonRpcMethodName)) { // Route to extension (runtime)
+        if (this.jsonRpcToJava.containsKey(jsonRpcMethodName)) { // Route to extension (runtime)
             ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(jsonRpcMethodName);
             Object target = Arc.container().select(reflectionInfo.bean).get();
 
@@ -145,7 +136,7 @@ public class JsonRPCRouter {
                 Cancellable cancellable = multi.subscribe()
                         .with(
                                 item -> {
-                                    codec.writeResponse(s, jsonRpcRequest.getId(), item, MessageType.SubscriptionMessage);
+                                    codec.writeResponse(s, jsonRpcRequest.getId(), item);
                                 },
                                 failure -> {
                                     codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcMethodName, failure);
@@ -154,7 +145,7 @@ public class JsonRPCRouter {
                                 () -> this.subscriptions.remove(jsonRpcRequest.getId()));
 
                 this.subscriptions.put(jsonRpcRequest.getId(), cancellable);
-                codec.writeResponse(s, jsonRpcRequest.getId(), null, MessageType.Void);
+                codec.writeResponse(s, jsonRpcRequest.getId(), null);
             } else {
                 // The invocation will return a Uni<JsonObject>
                 Uni<?> uni;
@@ -173,14 +164,7 @@ public class JsonRPCRouter {
                 }
                 uni.subscribe()
                         .with(item -> {
-                            if (item != null && JsonRPCMessage.class.isAssignableFrom(item.getClass())) {
-                                JsonRPCMessage jsonRpcMessage = (JsonRPCMessage) item;
-                                codec.writeResponse(s, jsonRpcRequest.getId(), jsonRpcMessage.getResponse(),
-                                        jsonRpcMessage.getMessageType());
-                            } else {
-                                codec.writeResponse(s, jsonRpcRequest.getId(), item,
-                                        MessageType.Response);
-                            }
+                            codec.writeResponse(s, jsonRpcRequest.getId(), item);
                         }, failure -> {
                             Throwable actualFailure;
                             // If the jsonrpc method is actually

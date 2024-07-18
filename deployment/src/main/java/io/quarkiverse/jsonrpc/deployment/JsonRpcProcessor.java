@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationTarget;
+import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
@@ -103,28 +104,33 @@ public class JsonRpcProcessor {
         // Let's use the Jandex index to find all methods
         for (AnnotationInstance annotationInstance : jsonRPCApiAnnotatoins) {
             AnnotationTarget target = annotationInstance.target();
-
             ClassInfo classInfo = target.asClass();
+            AnnotationValue annotationValue = annotationInstance.value();
+            String scope = classInfo.simpleName();
+            if (annotationValue != null && !annotationValue.asString().equals("_DEFAULT_SCOPE_")) {
+                scope = annotationValue.asString();
+            }
+
             Class clazz = JandexReflection.loadClass(classInfo);
-            String className = classInfo.name().toString();
+
             List<MethodInfo> methods = classInfo.methods();
 
             for (MethodInfo method : methods) {
                 if (!method.name().equals(CONSTRUCTOR)) { // Ignore constructor
                     if (Modifier.isPublic(method.flags())) { // Only allow public methods
                         if (method.returnType().kind() != Type.Kind.VOID) { // TODO: Only allow method with response ? Maybe not
-
+                            String fullName = String.format(FULL_NAME_FORMAT, scope, method.name());
                             // Create list of available methods for the Javascript side.
                             if (method.returnType().name().equals(DotName.createSimple(Multi.class.getName()))) {
-                                System.err.println(">>>>> Adding subcribtion method " + method.name());
-                                subscriptionMethods.add(className + DOT + method.name());
+                                System.err.println(">>>>> Adding subcribtion method " + fullName);
+                                subscriptionMethods.add(fullName);
                             } else {
-                                System.err.println(">>>>> Adding request-response method " + method.name());
-                                requestResponseMethods.add(className + DOT + method.name());
+                                System.err.println(">>>>> Adding request-response method " + fullName);
+                                requestResponseMethods.add(fullName);
                             }
 
                             // Also create the map to pass to the runtime for the relection calls
-                            JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(method.name());
+                            JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName);
                             if (method.parametersCount() > 0) {
                                 Map<String, Class> params = new LinkedHashMap<>(); // Keep the order
                                 for (int i = 0; i < method.parametersCount(); i++) {
@@ -204,5 +210,7 @@ public class JsonRpcProcessor {
             }
         }
     }
+
+    private static final String FULL_NAME_FORMAT = "%s#%s";
 
 }
