@@ -9,10 +9,13 @@ import java.lang.annotation.Target;
 /**
  * Marks a class as a Json-RPC Endpoint.
  * TODO: Allow adding path (from ws)?
- * TODO: Allow adding scope
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface JsonRPCApi {
+    /**
+     * @return a identifier/scope
+     */
+    String value() default "_DEFAULT_SCOPE_";
 }
