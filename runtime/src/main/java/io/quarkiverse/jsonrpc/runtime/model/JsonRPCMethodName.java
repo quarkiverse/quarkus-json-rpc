@@ -5,12 +5,14 @@ import java.util.Objects;
 public final class JsonRPCMethodName {
 
     private String name;
+    private String orderedParameterKey = null;
 
     public JsonRPCMethodName() {
     }
 
-    public JsonRPCMethodName(String name) {
+    public JsonRPCMethodName(String name, String orderedParameterKey) {
         this.name = name;
+        this.orderedParameterKey = orderedParameterKey;
     }
 
     public String getName() {
@@ -19,6 +21,18 @@ public final class JsonRPCMethodName {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public boolean hasOrderedParameterKey() {
+        return orderedParameterKey != null;
+    }
+
+    public String getOrderedParameterKey() {
+        return orderedParameterKey;
+    }
+
+    public void setOrderedParameterKey(String orderedParameterKey) {
+        this.orderedParameterKey = orderedParameterKey;
     }
 
     @Override

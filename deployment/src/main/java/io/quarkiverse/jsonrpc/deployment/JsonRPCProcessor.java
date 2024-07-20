@@ -20,6 +20,7 @@ import org.jboss.jandex.Type;
 
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
+import io.quarkiverse.jsonrpc.runtime.Keys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
@@ -40,7 +41,7 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;
 
-public class JsonRpcProcessor {
+public class JsonRPCProcessor {
     private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi");
     private static final String FEATURE = "json-rpc";
     private static final String CONSTRUCTOR = "<init>";
@@ -119,18 +120,10 @@ public class JsonRpcProcessor {
                 if (!method.name().equals(CONSTRUCTOR)) { // Ignore constructor
                     if (Modifier.isPublic(method.flags())) { // Only allow public methods
                         if (method.returnType().kind() != Type.Kind.VOID) { // TODO: Only allow method with response ? Maybe not
-                            String fullName = String.format(FULL_NAME_FORMAT, scope, method.name());
-                            // Create list of available methods for the Javascript side.
-                            if (method.returnType().name().equals(DotName.createSimple(Multi.class.getName()))) {
-                                System.err.println(">>>>> Adding subcribtion method " + fullName);
-                                subscriptionMethods.add(fullName);
-                            } else {
-                                System.err.println(">>>>> Adding request-response method " + fullName);
-                                requestResponseMethods.add(fullName);
-                            }
+                            String fullName = null;
 
                             // Also create the map to pass to the runtime for the relection calls
-                            JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName);
+
                             if (method.parametersCount() > 0) {
                                 Map<String, Class> params = new LinkedHashMap<>(); // Keep the order
                                 for (int i = 0; i < method.parametersCount(); i++) {
@@ -139,17 +132,30 @@ public class JsonRpcProcessor {
                                     String parameterName = method.parameterName(i);
                                     params.put(parameterName, parameterClass);
                                 }
+                                fullName = Keys.createKey(scope, method.name(), params.keySet());
+
+                                JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName,
+                                        Keys.createOrderedParameterKey(scope, method.name(), method.parametersCount()));
                                 JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), params);
                                 jsonRpcMethod.setExplicitlyBlocking(method.hasAnnotation(Blocking.class));
                                 jsonRpcMethod
                                         .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
                             } else {
+                                fullName = Keys.createKey(scope, method.name());
+                                JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
                                 JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), null);
                                 jsonRpcMethod.setExplicitlyBlocking(method.hasAnnotation(Blocking.class));
                                 jsonRpcMethod
                                         .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
+                            }
+
+                            // Create list of available methods for the Javascript side.
+                            if (method.returnType().name().equals(DotName.createSimple(Multi.class.getName()))) {
+                                subscriptionMethods.add(fullName);
+                            } else {
+                                requestResponseMethods.add(fullName);
                             }
                         }
                     }
@@ -210,7 +216,5 @@ public class JsonRpcProcessor {
             }
         }
     }
-
-    private static final String FULL_NAME_FORMAT = "%s#%s";
 
 }
