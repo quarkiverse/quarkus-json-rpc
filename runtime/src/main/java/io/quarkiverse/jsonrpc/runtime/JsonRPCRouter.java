@@ -33,6 +33,8 @@ public class JsonRPCRouter {
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
 
+    private final Map<String, String> orderedParameterKeyToNamedKey = new HashMap<>();
+
     private static final List<ServerWebSocket> SESSIONS = Collections.synchronizedList(new ArrayList<>());
     private JsonRPCCodec codec = new JsonRPCCodec();
 
@@ -62,6 +64,9 @@ public class JsonRPCRouter {
                 ReflectionInfo reflectionInfo = new ReflectionInfo(jsonRpcMethod.getClazz(), providerInstance, javaMethod,
                         params, jsonRpcMethod.getExplicitlyBlocking(), jsonRpcMethod.getExplicitlyNonBlocking());
                 jsonRpcToJava.put(methodName.toString(), reflectionInfo);
+                if (methodName.hasOrderedParameterKey()) {
+                    orderedParameterKeyToNamedKey.put(methodName.getOrderedParameterKey(), methodName.toString());
+                }
             } catch (NoSuchMethodException | SecurityException ex) {
                 throw new RuntimeException(ex);
             }
@@ -111,25 +116,32 @@ public class JsonRPCRouter {
 
     @SuppressWarnings("unchecked")
     private void route(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
-        String jsonRpcMethodName = jsonRpcRequest.getMethod();
+        //String jsonRpcMethodName = jsonRpcRequest.getMethod();
+        String key = Keys.createKey(jsonRpcRequest);
+        if (jsonRpcRequest.hasPositionedParams()) {
+            String opKey = Keys.createOrderedParameterKey(jsonRpcRequest);
+            if (orderedParameterKeyToNamedKey.containsKey(opKey)) {
+                key = orderedParameterKeyToNamedKey.get(opKey);
+            }
+        }
 
-        if (this.jsonRpcToJava.containsKey(jsonRpcMethodName)) { // Route to extension (runtime)
-            ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(jsonRpcMethodName);
+        if (this.jsonRpcToJava.containsKey(key)) {
+            ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(key);
             Object target = Arc.container().select(reflectionInfo.bean).get();
 
             if (reflectionInfo.isReturningMulti()) {
                 Multi<?> multi;
                 try {
-                    if (jsonRpcRequest.hasParams()) {
+                    if (jsonRpcRequest.hasNamedParams()) {
                         Object[] args = getArgsAsObjects(reflectionInfo.params, jsonRpcRequest);
                         multi = (Multi<?>) reflectionInfo.method.invoke(target, args);
                     } else {
                         multi = (Multi<?>) reflectionInfo.method.invoke(target);
                     }
                 } catch (Exception e) {
-                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcMethodName,
+                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcMethodName, e);
+                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), e);
                     return;
                 }
 
@@ -139,7 +151,7 @@ public class JsonRPCRouter {
                                     codec.writeResponse(s, jsonRpcRequest.getId(), item);
                                 },
                                 failure -> {
-                                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcMethodName, failure);
+                                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), failure);
                                     this.subscriptions.remove(jsonRpcRequest.getId());
                                 },
                                 () -> this.subscriptions.remove(jsonRpcRequest.getId()));
@@ -157,9 +169,9 @@ public class JsonRPCRouter {
                         uni = invoke(reflectionInfo, target, new Object[0]);
                     }
                 } catch (Exception e) {
-                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcMethodName,
+                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcMethodName, e);
+                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), e);
                     return;
                 }
                 uni.subscribe()
@@ -178,26 +190,29 @@ public class JsonRPCRouter {
                             } else {
                                 actualFailure = failure;
                             }
-                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcMethodName, actualFailure);
+                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), actualFailure);
                         });
             }
         } else {
             // Method not found
-            codec.writeMethodNotFoundResponse(s, jsonRpcRequest.getId(), jsonRpcMethodName);
+            codec.writeMethodNotFoundResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod());
         }
     }
 
     private Object[] getArgsAsObjects(Map<String, Class> params, JsonRPCRequest jsonRpcRequest) {
         List<Object> objects = new ArrayList<>();
+        int cnt = 0;
         for (Map.Entry<String, Class> expectedParams : params.entrySet()) {
             String paramName = expectedParams.getKey();
             Class paramType = expectedParams.getValue();
-            Object param = jsonRpcRequest.getParam(paramName, paramType);
-            objects.add(param);
+            if (jsonRpcRequest.hasNamedParams()) {
+                Object param = jsonRpcRequest.getNamedParam(paramName, paramType);
+                objects.add(param);
+            } else if (jsonRpcRequest.hasPositionedParams()) {
+                Object param = jsonRpcRequest.getPositionedParam(++cnt, paramType);
+                objects.add(param);
+            }
         }
         return objects.toArray(Object[]::new);
     }
-
-    private static final String DOT = ".";
-    private static final String UNSUBSCRIBE = "unsubscribe";
 }
