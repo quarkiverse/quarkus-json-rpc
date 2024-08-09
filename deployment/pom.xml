@@ -20,6 +20,10 @@
             <artifactId>quarkus-vertx-http-deployment</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jackson-deployment</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkiverse.json-rpc</groupId>
             <artifactId>quarkus-json-rpc</artifactId>
             <version>${project.version}</version>
