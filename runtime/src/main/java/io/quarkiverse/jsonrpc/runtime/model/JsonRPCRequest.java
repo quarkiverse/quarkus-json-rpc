@@ -6,28 +6,33 @@ import static io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys.METHOD;
 import static io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys.PARAMS;
 import static io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys.VERSION;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class JsonRPCRequest {
-
-    private final JsonObject jsonObject;
+    private final ObjectMapper objectMapper;
+    private final JsonNode jsonNode;
     private final ParamOption paramOption;
 
-    JsonRPCRequest(JsonObject jsonObject) {
-        this.jsonObject = jsonObject;
+    JsonRPCRequest(ObjectMapper objectMapper, JsonNode jsonNode) {
+        this.objectMapper = objectMapper;
+        this.jsonNode = jsonNode;
         this.paramOption = parametersProvidedAs();
     }
 
     public int getId() {
-        return jsonObject.getInteger(ID);
+        return jsonNode.get(ID).asInt();
     }
 
     public String getJsonrpc() {
-        String value = jsonObject.getString(JSONRPC);
+        String value = jsonNode.get(JSONRPC).asText();
         if (value != null) {
             return value;
         }
@@ -35,7 +40,7 @@ public class JsonRPCRequest {
     }
 
     public String getMethod() {
-        return jsonObject.getString(METHOD);
+        return jsonNode.get(METHOD).asText();
     }
 
     public boolean hasParams() {
@@ -51,20 +56,33 @@ public class JsonRPCRequest {
     }
 
     public Map<String, Object> getNamedParams() {
-        if (paramOption.equals(ParamOption.OBJECT)) {
-            JsonObject paramsObject = jsonObject.getJsonObject(PARAMS);
-            if (paramsObject != null && paramsObject.getMap() != null && !paramsObject.getMap().isEmpty()) {
-                return paramsObject.getMap();
+        if (paramOption != null && paramOption.equals(ParamOption.OBJECT)) {
+            ObjectNode paramsObject = jsonNode.withObject(PARAMS);
+            if (paramsObject != null && paramsObject.size() > 0) {
+                try {
+                    return objectMapper.treeToValue(paramsObject, Map.class);
+                } catch (IllegalArgumentException | JsonProcessingException ex) {
+                    throw new RuntimeException(ex);
+                }
             }
         }
         return null;
     }
 
     public Object[] getPositionedParams() {
-        if (paramOption.equals(ParamOption.ARRAY)) {
-            JsonArray paramsObject = jsonObject.getJsonArray(PARAMS);
+        if (paramOption != null && paramOption.equals(ParamOption.ARRAY)) {
+            ArrayNode paramsObject = jsonNode.withArrayProperty(PARAMS);
             if (paramsObject != null && !paramsObject.isEmpty()) {
-                return paramsObject.stream().toArray(Object[]::new);
+                Object[] objects = new Object[paramsObject.size()];
+                for (int i = 0; i < paramsObject.size(); i++) {
+                    JsonNode node = paramsObject.get(i);
+                    try {
+                        objects[i] = objectMapper.treeToValue(node, Object.class);
+                    } catch (IllegalArgumentException | JsonProcessingException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                }
+                return objects;
             }
         }
         return null;
@@ -75,7 +93,8 @@ public class JsonRPCRequest {
         if (params == null || !params.containsKey(key)) {
             return null;
         }
-        return (T) params.get(key);
+        Object o = params.get(key);
+        return (T) bindParam(o, paramType);
     }
 
     public <T> T getPositionedParam(int pos, Class<T> paramType) {
@@ -83,7 +102,8 @@ public class JsonRPCRequest {
         if (params == null || params.length == 0) {
             return null;
         }
-        return (T) params[pos - 1];
+        Object o = params[pos - 1];
+        return (T) bindParam(o, paramType);
     }
 
     public Set<String> getNamedParamKeys() {
@@ -94,21 +114,28 @@ public class JsonRPCRequest {
         return null;
     }
 
-    private ParamOption parametersProvidedAs() {
+    private <T> Object bindParam(Object o, Class<T> paramType) {
+        // If a complex object, we need to bind
+        if (o.getClass().equals(LinkedHashMap.class)) {
+            return objectMapper.convertValue(o, paramType);
+        }
+        return o;
+    }
 
-        Object value = jsonObject.getValue(PARAMS);
+    private ParamOption parametersProvidedAs() {
+        JsonNode value = jsonNode.get(PARAMS);
         if (value == null) {
             return null;
-        } else if (value instanceof JsonObject) {
-            return ParamOption.OBJECT;
-        } else {
+        }
+        if (value.isArray()) {
             return ParamOption.ARRAY;
         }
+        return ParamOption.OBJECT;
     }
 
     @Override
     public String toString() {
-        return jsonObject.encodePrettily();
+        return jsonNode.toPrettyString();
     }
 
     enum ParamOption {

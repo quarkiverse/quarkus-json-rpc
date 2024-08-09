@@ -2,18 +2,28 @@ package io.quarkiverse.jsonrpc.runtime.model;
 
 import org.jboss.logging.Logger;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.arc.Arc;
 import io.vertx.core.http.ServerWebSocket;
-import io.vertx.core.json.Json;
-import io.vertx.core.json.JsonObject;
 
 public class JsonRPCCodec {
     private static final Logger LOG = Logger.getLogger(JsonRPCCodec.class);
+    private final ObjectMapper objectMapper;
 
     public JsonRPCCodec() {
+        this.objectMapper = Arc.container().select(ObjectMapper.class).get();
     }
 
     public JsonRPCRequest readRequest(String json) {
-        return new JsonRPCRequest((JsonObject) Json.decodeValue(json));
+        try {
+            JsonNode jsonNode = objectMapper.readTree(json);
+            return new JsonRPCRequest(objectMapper, jsonNode);
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     public void writeResponse(ServerWebSocket socket, int id, Object object) {
@@ -33,6 +43,10 @@ public class JsonRPCCodec {
     }
 
     private void writeResponse(ServerWebSocket socker, JsonRPCResponse response) {
-        socker.writeTextMessage(Json.encodePrettily(response));
+        try {
+            socker.writeTextMessage(objectMapper.writeValueAsString(response));
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 }
