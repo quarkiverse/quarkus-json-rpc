@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.jboss.logging.Logger;
@@ -16,11 +17,16 @@ import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest;
 import io.quarkus.arc.Arc;
+import io.smallrye.context.SmallRyeThreadContext;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.smallrye.mutiny.subscription.Cancellable;
 import io.smallrye.mutiny.unchecked.Unchecked;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Context;
+import io.vertx.core.Handler;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.http.ServerWebSocket;
 
 /**
@@ -73,25 +79,41 @@ public class JsonRPCRouter {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private Uni<?> invoke(ReflectionInfo info, Object target, Object[] args) {
-        if (info.isReturningUni()) {
-            try {
-                Uni<?> uni = ((Uni<?>) info.method.invoke(target, args));
+        Context vc = Vertx.currentContext();
+        try {
+            if (info.isReturningUni()) {
                 if (info.isExplicitlyBlocking()) {
-                    return uni.runSubscriptionOn(Infrastructure.getDefaultExecutor());
+                    SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
+                    final Promise<?> result = Promise.promise();
+                    // We need some make sure that we call given the context
+                    Callable<Object> contextualCallable = threadContext.contextualCallable(() -> {
+                        Object resultFromMethodCall = info.method.invoke(target, args);
+                        Uni<?> uniFromMethodCall = (Uni<?>) resultFromMethodCall;
+                        return uniFromMethodCall.subscribeAsCompletionStage().get();
+                    });
+                    vc.executeBlocking(contextualCallable).onComplete((Handler<AsyncResult<Object>>) result);
+                    return Uni.createFrom().completionStage(result.future().toCompletionStage());
                 } else {
-                    return uni;
+                    return (Uni<?>) info.method.invoke(target, args);
                 }
-            } catch (Throwable e) {
-                return Uni.createFrom().failure(e);
-            }
-        } else {
-            Uni<?> uni = Uni.createFrom().item(Unchecked.supplier(() -> info.method.invoke(target, args)));
-            if (!info.isExplicitlyNonBlocking()) {
-                return uni.runSubscriptionOn(Infrastructure.getDefaultExecutor());
             } else {
-                return uni;
+                if (info.isExplicitlyNonBlocking()) {
+                    return Uni.createFrom().item(Unchecked.supplier(() -> info.method.invoke(target, args)));
+                } else {
+                    SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
+                    final Promise<?> result = Promise.promise();
+                    // We need some make sure that we call given the context
+                    Callable<Object> contextualCallable = threadContext.contextualCallable(() -> {
+                        return info.method.invoke(target, args);
+                    });
+                    vc.executeBlocking(contextualCallable).onComplete((Handler<AsyncResult<Object>>) result);
+                    return Uni.createFrom().completionStage(result.future().toCompletionStage());
+                }
             }
+        } catch (Throwable e) {
+            return Uni.createFrom().failure(e);
         }
     }
 
@@ -116,7 +138,6 @@ public class JsonRPCRouter {
 
     @SuppressWarnings("unchecked")
     private void route(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
-        //String jsonRpcMethodName = jsonRpcRequest.getMethod();
         String key = Keys.createKey(jsonRpcRequest);
         if (jsonRpcRequest.hasPositionedParams()) {
             String opKey = Keys.createOrderedParameterKey(jsonRpcRequest);
