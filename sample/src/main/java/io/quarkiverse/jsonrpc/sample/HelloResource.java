@@ -3,6 +3,8 @@ package io.quarkiverse.jsonrpc.sample;
 import java.time.Duration;
 
 import io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi;
+import io.smallrye.common.annotation.Blocking;
+import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
@@ -13,7 +15,17 @@ public class HelloResource {
         return "Hello" + " [" + Thread.currentThread().getName() + "]";
     }
 
+    @NonBlocking
+    public String helloNonBlocking() {
+        return "Hello" + " [" + Thread.currentThread().getName() + "]";
+    }
+
     public String hello(String name) {
+        return "Hello " + name + " [" + Thread.currentThread().getName() + "]";
+    }
+
+    @NonBlocking
+    public String helloNonBlocking(String name) {
         return "Hello " + name + " [" + Thread.currentThread().getName() + "]";
     }
 
@@ -21,7 +33,17 @@ public class HelloResource {
         return "Hello " + name + " " + surname + " [" + Thread.currentThread().getName() + "]";
     }
 
+    @NonBlocking
+    public String helloNonBlocking(String name, String surname) {
+        return "Hello " + name + " " + surname + " [" + Thread.currentThread().getName() + "]";
+    }
+
     public Uni<String> helloUni() {
+        return Uni.createFrom().item(hello());
+    }
+
+    @Blocking
+    public Uni<String> helloUniBlocking() {
         return Uni.createFrom().item(hello());
     }
 
@@ -29,7 +51,17 @@ public class HelloResource {
         return Uni.createFrom().item(hello(name));
     }
 
+    @Blocking
+    public Uni<String> helloUniBlocking(String name) {
+        return Uni.createFrom().item(hello(name));
+    }
+
     public Uni<String> helloUni(String name, String surname) {
+        return Uni.createFrom().item(hello(name, surname));
+    }
+
+    @Blocking
+    public Uni<String> helloUniBlocking(String name, String surname) {
         return Uni.createFrom().item(hello(name, surname));
     }
 
