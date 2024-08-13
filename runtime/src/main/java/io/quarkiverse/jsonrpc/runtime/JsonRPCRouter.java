@@ -10,6 +10,9 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
@@ -17,6 +20,7 @@ import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest;
 import io.quarkus.arc.Arc;
+import io.quarkus.arc.ManagedContext;
 import io.smallrye.context.SmallRyeThreadContext;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -43,6 +47,8 @@ public class JsonRPCRouter {
 
     private static final List<ServerWebSocket> SESSIONS = Collections.synchronizedList(new ArrayList<>());
     private JsonRPCCodec codec = new JsonRPCCodec();
+
+    private ManagedContext currentManagedContext;
 
     /**
      * This gets called on build to build into of the classes we are going to call in runtime
@@ -79,10 +85,24 @@ public class JsonRPCRouter {
         }
     }
 
+    @PostConstruct
+    public void init() {
+        this.currentManagedContext = Arc.container().requestContext();
+    }
+
+    @PreDestroy
+    public void destroy() {
+        currentManagedContext.terminate();
+    }
+
     @SuppressWarnings("unchecked")
     private Uni<?> invoke(ReflectionInfo info, Object target, Object[] args) {
         Context vc = Vertx.currentContext();
+
         try {
+            if (!currentManagedContext.isActive()) {
+                currentManagedContext.activate();
+            }
             if (info.isReturningUni()) {
                 if (info.isExplicitlyBlocking()) {
                     SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
@@ -114,6 +134,8 @@ public class JsonRPCRouter {
             }
         } catch (Throwable e) {
             return Uni.createFrom().failure(e);
+        } finally {
+            currentManagedContext.deactivate();
         }
     }
 
