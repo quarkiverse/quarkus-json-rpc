@@ -5,6 +5,7 @@ import org.jboss.logging.Logger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.quarkus.arc.Arc;
 import io.vertx.core.http.ServerWebSocket;
@@ -15,6 +16,7 @@ public class JsonRPCCodec {
 
     public JsonRPCCodec() {
         this.objectMapper = Arc.container().select(ObjectMapper.class).get();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
     }
 
     public JsonRPCRequest readRequest(String json) {
