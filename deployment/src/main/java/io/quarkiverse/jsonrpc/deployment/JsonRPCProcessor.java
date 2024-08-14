@@ -4,9 +4,11 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationTarget;
@@ -34,6 +36,7 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.AdditionalIndexedClassesBuildItem;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
+import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
@@ -45,7 +48,6 @@ public class JsonRPCProcessor {
     private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi");
     private static final String FEATURE = "json-rpc";
     private static final String CONSTRUCTOR = "<init>";
-    private static final String DOT = ".";
 
     private final ClassLoader tccl = Thread.currentThread().getContextClassLoader();
 
@@ -90,6 +92,7 @@ public class JsonRPCProcessor {
 
     @BuildStep
     void findAllJsonRPCMethods(BuildProducer<JsonRPCMethodsBuildItem> jsonRPCMethodsProvider,
+            BuildProducer<ReflectiveClassBuildItem> reflectiveClassProducer,
             CombinedIndexBuildItem combinedIndexBuildItem,
             CurateOutcomeBuildItem curateOutcomeBuildItem) {
 
@@ -101,6 +104,8 @@ public class JsonRPCProcessor {
 
         List<String> requestResponseMethods = new ArrayList<>(); // All requestResponse methods for validation on the client side
         List<String> subscriptionMethods = new ArrayList<>(); // All subscription methods for validation on the client side
+
+        Set<String> nativeClasses = new HashSet<>(); // Gather all classes that should be registered for native
 
         // Let's use the Jandex index to find all methods
         for (AnnotationInstance annotationInstance : jsonRPCApiAnnotatoins) {
@@ -120,6 +125,7 @@ public class JsonRPCProcessor {
                 if (!method.name().equals(CONSTRUCTOR)) { // Ignore constructor
                     if (Modifier.isPublic(method.flags())) { // Only allow public methods
                         if (method.returnType().kind() != Type.Kind.VOID) { // TODO: Only allow method with response ? Maybe not
+
                             String fullName = null;
 
                             // Also create the map to pass to the runtime for the relection calls
@@ -141,6 +147,8 @@ public class JsonRPCProcessor {
                                 jsonRpcMethod
                                         .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
+
+                                nativeClasses.addAll(List.copyOf(params.keySet()));
                             } else {
                                 fullName = Keys.createKey(scope, method.name());
                                 JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
@@ -149,6 +157,12 @@ public class JsonRPCProcessor {
                                 jsonRpcMethod
                                         .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
+                            }
+
+                            // Add the return type
+                            String returnType = getEffectiveReturnType(method.returnType());
+                            if (returnType != null) {
+                                nativeClasses.add(returnType);
                             }
 
                             // Create list of available methods for the Javascript side.
@@ -183,6 +197,17 @@ public class JsonRPCProcessor {
         //    methodInfo.addBuildTimeData("jsonRPCMethods", requestResponseMethods);
         //}
 
+        // Add know other classes to native
+        nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCResponse.class.getName());
+        nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest.class.getName());
+        nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod.class.getName());
+        nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName.class.getName());
+
+        // Make sure it's available in native
+        reflectiveClassProducer
+                .produce(ReflectiveClassBuildItem.builder(nativeClasses.toArray(new String[] {})).methods()
+                        .fields().build());
+
     }
 
     @BuildStep
@@ -200,6 +225,21 @@ public class JsonRPCProcessor {
                         .routeBuilder().route("/quarkus/json-rpc") // TODO: Make this configurable
                         .handler(recorder.webSocketHandler())
                         .build());
+    }
+
+    private String getEffectiveReturnType(Type type) {
+        // Add the return type
+        switch (type.kind()) {
+            case CLASS:
+                return type.asClassType().name().toString();
+            case ARRAY:
+                return getEffectiveReturnType(type.asArrayType().componentType());
+            case PARAMETERIZED_TYPE:
+                return getEffectiveReturnType(type.asParameterizedType().arguments().get(0));
+            default:
+                break;
+        }
+        return null;
     }
 
     private Class toClass(Type type) {
