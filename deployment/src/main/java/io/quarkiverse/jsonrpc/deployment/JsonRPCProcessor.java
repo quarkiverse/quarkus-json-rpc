@@ -20,6 +20,7 @@ import org.jboss.jandex.JandexReflection;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.Type;
 
+import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.Keys;
@@ -212,7 +213,9 @@ public class JsonRPCProcessor {
 
     @BuildStep
     @Record(ExecutionTime.STATIC_INIT)
-    void registerHandlers(JsonRPCRecorder recorder,
+    void registerHandlers(
+            JsonRPCConfig jsonRPCConfig,
+            JsonRPCRecorder recorder,
             BuildProducer<RouteBuildItem> routeProducer,
             HttpRootPathBuildItem httpRootPathBuildItem,
             BeanContainerBuildItem beanContainerBuildItem,
@@ -221,8 +224,10 @@ public class JsonRPCProcessor {
 
         // Websocket for JsonRPC comms
         routeProducer.produce(
-                httpRootPathBuildItem
-                        .routeBuilder().route("/quarkus/json-rpc") // TODO: Make this configurable
+                httpRootPathBuildItem.routeBuilder()
+                        .management("quarkus.json-rpc.web-socket.enabled")
+                        .route(jsonRPCConfig.webSocket.path)
+                        .routeConfigKey("quarkus.json-rpc.web-socket.path")
                         .handler(recorder.webSocketHandler())
                         .build());
     }
