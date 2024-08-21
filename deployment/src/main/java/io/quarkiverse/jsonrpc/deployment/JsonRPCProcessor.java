@@ -220,16 +220,17 @@ public class JsonRPCProcessor {
             HttpRootPathBuildItem httpRootPathBuildItem,
             BeanContainerBuildItem beanContainerBuildItem,
             JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
-        recorder.createJsonRpcRouter(beanContainerBuildItem.getValue(), jsonRPCMethodsBuildItem.getMethodsMap());
+        if (jsonRPCConfig.webSocket.enabled) {
+            recorder.createJsonRpcRouter(beanContainerBuildItem.getValue(), jsonRPCMethodsBuildItem.getMethodsMap());
 
-        // Websocket for JsonRPC comms
-        routeProducer.produce(
-                httpRootPathBuildItem.routeBuilder()
-                        .management("quarkus.json-rpc.web-socket.enabled")
-                        .route(jsonRPCConfig.webSocket.path)
-                        .routeConfigKey("quarkus.json-rpc.web-socket.path")
-                        .handler(recorder.webSocketHandler())
-                        .build());
+            // Websocket for JsonRPC comms
+            routeProducer.produce(
+                    httpRootPathBuildItem.routeBuilder()
+                            .route(jsonRPCConfig.webSocket.path)
+                            .routeConfigKey("quarkus.json-rpc.web-socket.path")
+                            .handler(recorder.webSocketHandler())
+                            .build());
+        }
     }
 
     private String getEffectiveReturnType(Type type) {
