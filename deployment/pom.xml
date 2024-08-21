@@ -24,6 +24,10 @@
             <artifactId>quarkus-jackson-deployment</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jackson</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkiverse.json-rpc</groupId>
             <artifactId>quarkus-json-rpc</artifactId>
             <version>${project.version}</version>
