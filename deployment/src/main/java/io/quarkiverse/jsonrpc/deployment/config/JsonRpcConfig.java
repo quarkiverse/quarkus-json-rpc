@@ -8,7 +8,7 @@ import io.smallrye.config.WithName;
  * JsonRPC Configuration
  */
 @ConfigRoot(phase = ConfigPhase.BUILD_TIME)
-public class JsonRPCConfig {
+public class JsonRpcConfig {
 
     /**
      * Configuration properties for the JsonRPC Websocket
@@ -17,5 +17,5 @@ public class JsonRPCConfig {
     public JsonRPCWebSocketConfig webSocket;
 
     @WithName("open-rpc")
-    public JsonRPCOpenRPCConfig openRPC;
+    public JsonRPCOpenRpcConfig openRPC;
 }

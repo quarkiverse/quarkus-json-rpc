@@ -6,7 +6,7 @@ import java.util.Map;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-public enum OpenRPCSpecVersion {
+public enum OpenRpcSpecVersion {
 
     _1_3_2("1.3.2"),
     _1_3_1("1.3.1"),
@@ -36,15 +36,15 @@ public enum OpenRPCSpecVersion {
     _1_0_0_RC_0("1.0.0-rc0");
 
     private final String value;
-    private final static Map<String, OpenRPCSpecVersion> CONSTANTS = new HashMap<String, OpenRPCSpecVersion>();
+    private final static Map<String, OpenRpcSpecVersion> CONSTANTS = new HashMap<String, OpenRpcSpecVersion>();
 
     static {
-        for (OpenRPCSpecVersion c : values()) {
+        for (OpenRpcSpecVersion c : values()) {
             CONSTANTS.put(c.value, c);
         }
     }
 
-    OpenRPCSpecVersion(String value) {
+    OpenRpcSpecVersion(String value) {
         this.value = value;
     }
 
@@ -59,8 +59,8 @@ public enum OpenRPCSpecVersion {
     }
 
     @JsonCreator
-    public static OpenRPCSpecVersion fromValue(String value) {
-        OpenRPCSpecVersion constant = CONSTANTS.get(value);
+    public static OpenRpcSpecVersion fromValue(String value) {
+        OpenRpcSpecVersion constant = CONSTANTS.get(value);
         if (constant == null) {
             throw new IllegalArgumentException(value);
         } else {

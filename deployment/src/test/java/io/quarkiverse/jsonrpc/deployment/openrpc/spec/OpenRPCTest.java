@@ -14,7 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.QuarkusUnitTest;
 import io.vertx.core.Vertx;
 
-class OpenRPCTest {
+class OpenRpcTest {
 
     @Inject
     Vertx vertx;
@@ -26,9 +26,9 @@ class OpenRPCTest {
     public static final QuarkusUnitTest test = new QuarkusUnitTest();
 
     @Test
-    public void testOpenRPCEncode() throws JsonProcessingException {
+    public void testOpenRpcEncode() throws JsonProcessingException {
 
-        OpenRPCSpecVersion openRPCSpecVersion = OpenRPCSpecVersion._1_2_6;
+        OpenRpcSpecVersion openRPCSpecVersion = OpenRpcSpecVersion._1_2_6;
         Contact contact = new Contact("Alexander Haslam", "https://indiealex.com", "alex@indiealexh.com");
         License license = new License("Apache 2.0", "https://www.apache.org/licenses/LICENSE-2.0.txt");
         Info info = new Info(
@@ -41,7 +41,7 @@ class OpenRPCTest {
         Set<Server> servers = new HashSet<>();
         Set<Method> methods = new HashSet<>();
 
-        OpenRPC openRPC = new OpenRPC(
+        OpenRpc openRPC = new OpenRpc(
                 openRPCSpecVersion,
                 info,
                 servers,

@@ -8,9 +8,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 // TODO: Extract OpenRPC spec to its own library
 @JsonInclude(JsonInclude.Include.ALWAYS)
-public final class OpenRPC {
+public final class OpenRpc {
 
-    private final OpenRPCSpecVersion openrpc;
+    private final OpenRpcSpecVersion openrpc;
 
     public Info getInfo() {
         return info;
@@ -28,8 +28,8 @@ public final class OpenRPC {
     private final Set<Server> servers;
     private final Set<Method> methods;
 
-    public OpenRPC(
-            OpenRPCSpecVersion openrpc,
+    public OpenRpc(
+            OpenRpcSpecVersion openrpc,
             Info info,
             Set<Server> servers,
             Set<Method> methods
@@ -53,7 +53,7 @@ public final class OpenRPC {
             return true;
         if (obj == null || obj.getClass() != this.getClass())
             return false;
-        var that = (OpenRPC) obj;
+        var that = (OpenRpc) obj;
         return Objects.equals(this.openrpc, that.openrpc) &&
                 Objects.equals(this.info, that.info) &&
                 Objects.equals(this.servers, that.servers) &&
@@ -67,7 +67,7 @@ public final class OpenRPC {
 
     @Override
     public String toString() {
-        return "OpenRPC[" +
+        return "OpenRpc[" +
                 "openrpc=" + openrpc + ", " +
                 "info=" + info + ", " +
                 "servers=" + servers + ", " +

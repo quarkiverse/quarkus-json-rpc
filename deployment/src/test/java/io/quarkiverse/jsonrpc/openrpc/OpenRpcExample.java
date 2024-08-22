@@ -7,7 +7,7 @@ import io.quarkiverse.jsonrpc.deployment.openrpc.spec.*;
 
 public class OpenRpcExample {
     OpenRpcExample() {
-        OpenRPCSpecVersion openRPCSpecVersion = OpenRPCSpecVersion._1_3_2;
+        OpenRpcSpecVersion openRPCSpecVersion = OpenRpcSpecVersion._1_3_2;
         Contact contact = new Contact("Alexander Haslam", "https://indiealex.com", "alex@indiealexh.com");
         License license = new License("Apache 2.0", "https://www.apache.org/licenses/LICENSE-2.0.txt");
         Info info = new Info(
@@ -20,7 +20,7 @@ public class OpenRpcExample {
         Set<Server> servers = new HashSet<>();
         Set<Method> methods = new HashSet<>();
 
-        OpenRPC openRPC = new OpenRPC(
+        OpenRpc openRPC = new OpenRpc(
                 openRPCSpecVersion,
                 info,
                 servers,

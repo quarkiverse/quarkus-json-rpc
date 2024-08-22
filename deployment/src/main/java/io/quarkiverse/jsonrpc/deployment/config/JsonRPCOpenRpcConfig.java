@@ -4,7 +4,7 @@ import io.quarkus.runtime.annotations.ConfigGroup;
 import io.quarkus.runtime.annotations.ConfigItem;
 
 @ConfigGroup
-public class JsonRPCOpenRPCConfig {
+public class JsonRPCOpenRpcConfig {
     /**
      * Enable JsonRPC OpenRPC Spec
      */

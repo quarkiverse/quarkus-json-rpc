@@ -8,13 +8,13 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.ext.web.RoutingContext;
 
-public class OpenRPCSchemaHandler implements Handler<RoutingContext> {
+public class OpenRpcSchemaHandler implements Handler<RoutingContext> {
     private static final String ALLOWED_METHODS = "GET, OPTIONS";
     private static final String CONTENT_TYPE = "text/plain; charset=UTF-8";
 
     //private final SchemaPrinter schemaPrinter;
 
-    public OpenRPCSchemaHandler() {
+    public OpenRpcSchemaHandler() {
         //this.schemaPrinter = new SchemaPrinter();
     }
 
@@ -47,7 +47,7 @@ public class OpenRPCSchemaHandler implements Handler<RoutingContext> {
                 }
                 """;
 
-        //OpenRPC graphQLSchema = CDI.current().select(OpenRPC.class).get();
+        //OpenRpc graphQLSchema = CDI.current().select(OpenRpc.class).get();
 
         //String schemaString = schemaPrinter.print(graphQLSchema);
 

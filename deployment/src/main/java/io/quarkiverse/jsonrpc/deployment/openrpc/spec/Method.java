@@ -12,8 +12,8 @@ public record Method(
         //TODO: ContentDescriptor result
         boolean deprecated,
         Set<Server> servers
-//TODO: Set<OpenRPCError> errors,
-//TODO: Set<OpenRPCLink> links,
+//TODO: Set<OpenRpcError> errors,
+//TODO: Set<OpenRpcLink> links,
 //TODO: paramStructure
 //TODO: examples
 ) {

@@ -1,6 +1,6 @@
 package io.quarkiverse.jsonrpc.deployment.openrpc.devui;
 
-import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
+import io.quarkiverse.jsonrpc.deployment.config.JsonRpcConfig;
 import io.quarkus.deployment.IsDevelopment;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
@@ -9,9 +9,9 @@ import io.quarkus.devui.spi.page.Page;
 import io.quarkus.devui.spi.page.PageBuilder;
 import io.quarkus.vertx.http.deployment.NonApplicationRootPathBuildItem;
 
-public class JsonRPCOpenRPCDevUIProcessor {
+public class JsonRPCOpenRpcDevUIProcessor {
 
-    JsonRPCConfig jsonRPCConfig;
+    JsonRpcConfig jsonRPCConfig;
 
     @BuildStep(onlyIf = IsDevelopment.class)
     CardPageBuildItem createCard(NonApplicationRootPathBuildItem nonApplicationRootPathBuildItem) {

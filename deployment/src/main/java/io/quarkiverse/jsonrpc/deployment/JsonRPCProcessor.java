@@ -20,7 +20,7 @@ import org.jboss.jandex.JandexReflection;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.Type;
 
-import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
+import io.quarkiverse.jsonrpc.deployment.config.JsonRpcConfig;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.Keys;
@@ -214,7 +214,7 @@ public class JsonRPCProcessor {
     @BuildStep
     @Record(ExecutionTime.STATIC_INIT)
     void registerHandlers(
-            JsonRPCConfig jsonRPCConfig,
+            JsonRpcConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
             BuildProducer<RouteBuildItem> routeProducer,
             HttpRootPathBuildItem httpRootPathBuildItem,

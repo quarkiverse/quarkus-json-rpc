@@ -5,7 +5,7 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.ext.web.RoutingContext;
 
-public class OpenRPCNoEndpointHandler implements Handler<RoutingContext> {
+public class OpenRpcNoEndpointHandler implements Handler<RoutingContext> {
     private static final String CONTENT_TYPE = "text/plain; charset=UTF-8";
     private static final String MESSAGE = "OpenRPC Schema not generated. Make sure you have a OpenRPC Endpoint.";
 
