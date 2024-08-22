@@ -15,4 +15,7 @@ public class JsonRPCConfig {
      */
     @WithName("web-socket")
     public JsonRPCWebSocketConfig webSocket;
+
+    @WithName("open-rpc")
+    public JsonRPCOpenRPCConfig openRPC;
 }
