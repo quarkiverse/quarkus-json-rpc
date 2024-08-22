@@ -1,0 +1,46 @@
+
+:summaryTableId: quarkus-json-rpc
+[.configuration-legend]
+icon:lock[title=Fixed at build time] Configuration property fixed at build time - All other configuration properties are overridable at runtime
+[.configuration-reference.searchable, cols="80,.^10,.^10"]
+|===
+
+h|[[quarkus-json-rpc_configuration]]link:#quarkus-json-rpc_configuration[Configuration property]
+
+h|Type
+h|Default
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-web-socket-enabled]]`link:#quarkus-json-rpc_quarkus-json-rpc-web-socket-enabled[quarkus.json-rpc.web-socket.enabled]`
+
+
+[.description]
+--
+Enable JsonRPC Websocket
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_WEB_SOCKET_ENABLED+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_WEB_SOCKET_ENABLED+++`
+endif::add-copy-button-to-env-var[]
+--|boolean 
+|`true`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-web-socket-path]]`link:#quarkus-json-rpc_quarkus-json-rpc-web-socket-path[quarkus.json-rpc.web-socket.path]`
+
+
+[.description]
+--
+HTTP Path for the JsonRPC Websocket
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_WEB_SOCKET_PATH+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_WEB_SOCKET_PATH+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`/quarkus/json-rpc`
+
+|===
