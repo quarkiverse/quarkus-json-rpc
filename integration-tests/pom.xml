@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.quarkiverse.json-rpc</groupId>
         <artifactId>quarkus-json-rpc-parent</artifactId>
-        <version>999-SNAPSHOT</version>
+        <version>0.0.5</version>
     </parent>
     <artifactId>quarkus-json-rpc-integration-tests</artifactId>
     <name>Quarkus Json Rpc - Integration Tests</name>
