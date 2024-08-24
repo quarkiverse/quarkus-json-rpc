@@ -1,4 +1,4 @@
-package io.quarkiverse.jsonrpc.deployment.config;
+package io.quarkiverse.jsonrpc.runtime.config;
 
 import io.quarkus.runtime.annotations.ConfigGroup;
 import io.quarkus.runtime.annotations.ConfigItem;

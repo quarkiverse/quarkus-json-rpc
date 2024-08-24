@@ -23,6 +23,12 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-jackson</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkiverse.json-rpc</groupId>
+            <artifactId>open-rpc-schema</artifactId>
+            <version>999-SNAPSHOT</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>

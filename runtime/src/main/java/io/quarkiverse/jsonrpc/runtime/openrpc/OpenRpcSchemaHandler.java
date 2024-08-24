@@ -1,4 +1,4 @@
-package io.quarkiverse.jsonrpc.runtime;
+package io.quarkiverse.jsonrpc.runtime.openrpc;
 
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
@@ -10,7 +10,7 @@ import io.vertx.ext.web.RoutingContext;
 
 public class OpenRpcSchemaHandler implements Handler<RoutingContext> {
     private static final String ALLOWED_METHODS = "GET, OPTIONS";
-    private static final String CONTENT_TYPE = "text/plain; charset=UTF-8";
+    private static final String CONTENT_TYPE = "application/json; charset=UTF-8";
 
     //private final SchemaPrinter schemaPrinter;
 
@@ -47,9 +47,8 @@ public class OpenRpcSchemaHandler implements Handler<RoutingContext> {
                 }
                 """;
 
-        //OpenRpc graphQLSchema = CDI.current().select(OpenRpc.class).get();
-
-        //String schemaString = schemaPrinter.print(graphQLSchema);
+        //OpenRpc openRpcSchema = CDI.current().select(OpenRpc.class).get();
+        //String schemaString = schemaPrinter.print(openRpcSchema);
 
         if (request.method().equals(HttpMethod.OPTIONS)) {
             response.headers().set(HttpHeaders.ALLOW, ALLOWED_METHODS);

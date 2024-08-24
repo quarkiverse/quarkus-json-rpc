@@ -1,4 +1,4 @@
-package io.quarkiverse.jsonrpc.runtime;
+package io.quarkiverse.jsonrpc.runtime.openrpc;
 
 import io.vertx.core.Handler;
 import io.vertx.core.http.HttpHeaders;

@@ -3,7 +3,7 @@ package io.quarkiverse.jsonrpc.openrpc;
 import java.util.HashSet;
 import java.util.Set;
 
-import io.quarkiverse.jsonrpc.deployment.openrpc.spec.*;
+import io.quarkiverse.jsonrpc.openrpc.schema.*;
 
 public class OpenRpcExample {
     OpenRpcExample() {

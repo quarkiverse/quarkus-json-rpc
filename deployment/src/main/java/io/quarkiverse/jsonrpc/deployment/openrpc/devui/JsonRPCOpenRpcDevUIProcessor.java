@@ -1,6 +1,6 @@
 package io.quarkiverse.jsonrpc.deployment.openrpc.devui;
 
-import io.quarkiverse.jsonrpc.deployment.config.JsonRpcConfig;
+import io.quarkiverse.jsonrpc.runtime.config.JsonRpcConfig;
 import io.quarkus.deployment.IsDevelopment;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
@@ -18,10 +18,11 @@ public class JsonRPCOpenRpcDevUIProcessor {
         CardPageBuildItem cardPageBuildItem = new CardPageBuildItem();
 
         // Generated OpenRPC Schema
-        String openRpcSchemaPath = "/" + jsonRPCConfig.openRPC.specPath;
+        String openRpcSchemaPath = "/" + jsonRPCConfig.openRPC.basePath + "/" + jsonRPCConfig.openRPC.schemaPath;
         PageBuilder<ExternalPageBuilder> schemaPage = Page.externalPageBuilder("OpenRPC Schema")
                 .icon("font-awesome-solid:scroll")
-                .url(openRpcSchemaPath, openRpcSchemaPath);
+                .url(openRpcSchemaPath, openRpcSchemaPath)
+                .isJsonContent();
 
         // OpenRPC UI
         String uiPath = nonApplicationRootPathBuildItem.resolvePath(jsonRPCConfig.openRPC.playgroundPath);
