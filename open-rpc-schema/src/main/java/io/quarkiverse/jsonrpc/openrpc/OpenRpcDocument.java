@@ -1,32 +1,36 @@
-package io.quarkiverse.jsonrpc.deployment.openrpc;
-
-import io.quarkiverse.jsonrpc.deployment.openrpc.spec.*;
+package io.quarkiverse.jsonrpc.openrpc;
 
 import java.util.HashSet;
 import java.util.Set;
 
+import io.quarkiverse.jsonrpc.openrpc.schema.*;
+
 //TODO: Full OpenRPC Spec build based on passed in arguments
-public class JsonRPCOpenRpc {
+public class OpenRpcDocument {
 
-    private final OpenRpc model;
+    private final OpenRpc schema;
 
-    private JsonRPCOpenRpc(OpenRpc model) {
-        this.model = model;
+    public OpenRpcDocument() {
+        this.schema = null;
+    }
+
+    private OpenRpcDocument(OpenRpc schema) {
+        this.schema = schema;
     }
 
     public OpenRpc model() {
-        return model;
+        return schema;
     }
 
-    public static JsonRPCOpenRpc.Builder builder() {
-        return new JsonRPCOpenRpc.Builder();
+    public static OpenRpcDocument.Builder builder() {
+        return new OpenRpcDocument.Builder();
     }
 
     public static class Builder {
         private Builder() {
         }
 
-        public JsonRPCOpenRpc build() {
+        public OpenRpcDocument build() {
             OpenRpcSpecVersion openRPCSpecVersion = OpenRpcSpecVersion._1_3_2;
             Contact contact = new Contact("Alexander Haslam", "https://indiealex.com", "alex@indiealexh.com");
             License license = new License("Apache 2.0", "https://www.apache.org/licenses/LICENSE-2.0.txt");
@@ -45,8 +49,15 @@ public class JsonRPCOpenRpc {
                     info,
                     servers,
                     methods);
-            return new JsonRPCOpenRpc(openRPCModel);
+            return new OpenRpcDocument(openRPCModel);
         }
 
+    }
+
+    @Override
+    public String toString() {
+        return "OpenRpcDocument{" +
+                "schema=" + schema +
+                '}';
     }
 }

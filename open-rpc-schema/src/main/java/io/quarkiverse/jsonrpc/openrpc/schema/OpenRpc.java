@@ -1,5 +1,6 @@
-package io.quarkiverse.jsonrpc.deployment.openrpc.spec;
+package io.quarkiverse.jsonrpc.openrpc.schema;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Set;
 
@@ -8,7 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 // TODO: Extract OpenRPC spec to its own library
 @JsonInclude(JsonInclude.Include.ALWAYS)
-public final class OpenRpc {
+public final class OpenRpc implements Serializable {
 
     private final OpenRpcSpecVersion openrpc;
 
@@ -67,11 +68,11 @@ public final class OpenRpc {
 
     @Override
     public String toString() {
-        return "OpenRpc[" +
-                "openrpc=" + openrpc + ", " +
-                "info=" + info + ", " +
-                "servers=" + servers + ", " +
-                "methods=" + methods + ']';
+        return "OpenRpc{" +
+                "openrpc=" + openrpc +
+                ", info=" + info +
+                ", servers=" + servers +
+                ", methods=" + methods +
+                '}';
     }
-
 }

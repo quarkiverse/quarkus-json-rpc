@@ -1,4 +1,4 @@
-package io.quarkiverse.jsonrpc.deployment.openrpc.spec;
+package io.quarkiverse.jsonrpc.openrpc.schema;
 
 import java.util.HashMap;
 import java.util.Map;
