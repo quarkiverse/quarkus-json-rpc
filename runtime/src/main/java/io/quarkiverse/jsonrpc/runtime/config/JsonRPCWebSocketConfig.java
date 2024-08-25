@@ -1,19 +1,20 @@
 package io.quarkiverse.jsonrpc.runtime.config;
 
 import io.quarkus.runtime.annotations.ConfigGroup;
-import io.quarkus.runtime.annotations.ConfigItem;
+import io.smallrye.config.WithDefault;
 
 @ConfigGroup
-public class JsonRPCWebSocketConfig {
+public interface JsonRPCWebSocketConfig {
 
     /**
      * Enable JsonRPC Websocket
      */
-    @ConfigItem(defaultValue = "true")
-    public boolean enabled;
+    @WithDefault("true")
+    public boolean enabled();
+
     /**
      * HTTP Path for the JsonRPC Websocket
      */
-    @ConfigItem(defaultValue = "/quarkus/json-rpc")
-    public String path;
+    @WithDefault("quarkus/json-rpc")
+    public String path();
 }

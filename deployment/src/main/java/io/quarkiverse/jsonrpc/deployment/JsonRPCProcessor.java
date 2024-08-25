@@ -220,13 +220,13 @@ public class JsonRPCProcessor {
             HttpRootPathBuildItem httpRootPathBuildItem,
             BeanContainerBuildItem beanContainerBuildItem,
             JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
-        if (jsonRPCConfig.webSocket.enabled) {
+        if (jsonRPCConfig.webSocket().enabled()) {
             recorder.createJsonRpcRouter(beanContainerBuildItem.getValue(), jsonRPCMethodsBuildItem.getMethodsMap());
 
             // Websocket for JsonRPC comms
             routeProducer.produce(
                     httpRootPathBuildItem.routeBuilder()
-                            .route(jsonRPCConfig.webSocket.path)
+                            .route(jsonRPCConfig.webSocket().path())
                             .routeConfigKey("quarkus.json-rpc.web-socket.path")
                             .handler(recorder.webSocketHandler())
                             .build());
