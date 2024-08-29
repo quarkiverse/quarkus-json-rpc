@@ -21,7 +21,7 @@ public class OpenRpcExample {
         Set<Method> methods = new HashSet<>();
 
         OpenRpc openRPC = new OpenRpc(
-                openRPCSpecVersion,
+                openRPCSpecVersion.value(),
                 info,
                 servers,
                 methods);

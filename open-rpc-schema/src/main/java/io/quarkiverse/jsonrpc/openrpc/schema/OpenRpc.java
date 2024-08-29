@@ -11,7 +11,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonInclude(JsonInclude.Include.ALWAYS)
 public final class OpenRpc implements Serializable {
 
-    private final OpenRpcSpecVersion openrpc;
+    private final String openrpc;
 
     public Info getInfo() {
         return info;
@@ -30,7 +30,7 @@ public final class OpenRpc implements Serializable {
     private final Set<Method> methods;
 
     public OpenRpc(
-            OpenRpcSpecVersion openrpc,
+            String openrpc,
             Info info,
             Set<Server> servers,
             Set<Method> methods
@@ -45,7 +45,7 @@ public final class OpenRpc implements Serializable {
 
     @JsonProperty("openrpc")
     public String getOpenrpc() {
-        return openrpc.value();
+        return openrpc;
     }
 
     @Override

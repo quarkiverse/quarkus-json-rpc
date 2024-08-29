@@ -26,24 +26,7 @@ public class OpenRpcSchemaHandler implements Handler<RoutingContext> {
         //TODO: Make this real
         String schemaString = """
                 {
-                  "openrpc" : "1.2.6",
-                  "info" : {
-                    "title" : "example",
-                    "description" : "example",
-                    "termsOfService" : "https://apache.com",
-                    "contact" : {
-                      "name" : "Alexander Haslam",
-                      "url" : "https://indiealex.com",
-                      "email" : "alex@indiealexh.com"
-                    },
-                    "license" : {
-                      "name" : "Apache 2.0",
-                      "url" : "https://www.apache.org/licenses/LICENSE-2.0.txt"
-                    },
-                    "version" : "1.0.0"
-                  },
-                  "servers" : [ ],
-                  "methods" : [ ]
+                  "error": "Unable to generate OpenRPC schema"
                 }
                 """;
 

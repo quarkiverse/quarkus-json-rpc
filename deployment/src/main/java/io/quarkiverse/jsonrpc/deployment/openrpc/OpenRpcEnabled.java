@@ -14,6 +14,6 @@ public class OpenRpcEnabled implements BooleanSupplier {
 
     @Override
     public boolean getAsBoolean() {
-        return config.openRpc().enabled();
+        return config.openRpc.enabled;
     }
 }
