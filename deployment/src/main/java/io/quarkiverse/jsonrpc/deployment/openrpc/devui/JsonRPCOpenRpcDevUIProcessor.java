@@ -18,16 +18,17 @@ public class JsonRPCOpenRpcDevUIProcessor {
         CardPageBuildItem cardPageBuildItem = new CardPageBuildItem();
 
         // Generated OpenRPC Schema
-        String openRpcSchemaPath = jsonRPCConfig.openRpc.basePath + "/" + jsonRPCConfig.openRpc.schemaPath;
+        String openRpcSchemaPath = nonApplicationRootPathBuildItem
+                .resolvePath(jsonRPCConfig.openRpc.basePath + "/" + jsonRPCConfig.openRpc.schemaPath);
         PageBuilder<ExternalPageBuilder> schemaPage = Page.externalPageBuilder("OpenRPC Schema")
-                .icon("font-awesome-solid:scroll")
+                .icon("font-awesome-solid:file-code")
                 .url(openRpcSchemaPath, openRpcSchemaPath)
                 .isJsonContent();
 
         // OpenRPC UI
         String uiPath = nonApplicationRootPathBuildItem.resolvePath(jsonRPCConfig.openRpc.playgroundPath);
         PageBuilder<ExternalPageBuilder> uiPage = Page.externalPageBuilder("OpenRPC Playground")
-                .icon("font-awesome-solid:table-columns")
+                .icon("font-awesome-solid:signs-post")
                 .url(uiPath + "/index.html?embed=true", uiPath);
 
         cardPageBuildItem.addPage(schemaPage);

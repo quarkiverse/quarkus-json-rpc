@@ -39,9 +39,9 @@ public class JsonRPCRecorder {
 
     public void storeOpenRpcSchema(OpenRpc model, JsonRpcConfig jsonRpcConfig) {
         final var schemaConfig = jsonRpcConfig.openRpc;
-        String filePath = schemaConfig.storeSchemaDirectory + "/" + schemaConfig.schemaPath;
+        //        String filePath = schemaConfig.storeSchemaDirectory + "/" + schemaConfig.schemaPath;
         try {
-            Path path = Paths.get(System.getProperty("java.io.tmpdir"), filePath);
+            Path path = Paths.get(System.getProperty("java.io.tmpdir"), schemaConfig.schemaPath);
             String content = ObjectMapperFactory.json().writeValueAsString(model);
             LOGGER.info("JsonRPCRecorder.store to " + path);
             Files.writeString(path, content);
