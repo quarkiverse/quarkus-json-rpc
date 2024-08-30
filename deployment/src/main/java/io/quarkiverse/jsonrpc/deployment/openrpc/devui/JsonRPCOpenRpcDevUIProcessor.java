@@ -3,10 +3,7 @@ package io.quarkiverse.jsonrpc.deployment.openrpc.devui;
 import io.quarkiverse.jsonrpc.runtime.config.JsonRpcConfig;
 import io.quarkus.deployment.IsDevelopment;
 import io.quarkus.deployment.annotations.BuildStep;
-import io.quarkus.devui.spi.page.CardPageBuildItem;
-import io.quarkus.devui.spi.page.ExternalPageBuilder;
-import io.quarkus.devui.spi.page.Page;
-import io.quarkus.devui.spi.page.PageBuilder;
+import io.quarkus.devui.spi.page.*;
 import io.quarkus.vertx.http.deployment.NonApplicationRootPathBuildItem;
 
 public class JsonRPCOpenRpcDevUIProcessor {
@@ -14,7 +11,8 @@ public class JsonRPCOpenRpcDevUIProcessor {
     JsonRpcConfig jsonRPCConfig;
 
     @BuildStep(onlyIf = IsDevelopment.class)
-    CardPageBuildItem createCard(NonApplicationRootPathBuildItem nonApplicationRootPathBuildItem) {
+    CardPageBuildItem createCard(
+            NonApplicationRootPathBuildItem nonApplicationRootPathBuildItem) {
         CardPageBuildItem cardPageBuildItem = new CardPageBuildItem();
 
         // Generated OpenRPC Schema
@@ -27,12 +25,14 @@ public class JsonRPCOpenRpcDevUIProcessor {
 
         // OpenRPC UI
         String uiPath = nonApplicationRootPathBuildItem.resolvePath(jsonRPCConfig.openRpc.playgroundPath);
-        PageBuilder<ExternalPageBuilder> uiPage = Page.externalPageBuilder("OpenRPC Playground")
+        PageBuilder<QuteDataPageBuilder> uiPage = Page.quteDataPageBuilder("OpenRPC Playground")
                 .icon("font-awesome-solid:signs-post")
-                .url(uiPath + "/index.html?embed=true", uiPath);
+                .templateLink("open-rpc-playground-demo.qute.html");
 
         cardPageBuildItem.addPage(schemaPage);
         cardPageBuildItem.addPage(uiPage);
+
+        cardPageBuildItem.addBuildTimeData("schemaUrl", openRpcSchemaPath);
 
         return cardPageBuildItem;
     }
