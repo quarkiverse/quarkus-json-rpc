@@ -9,3 +9,5 @@ metadata:
   categories:
     - "miscellaneous"
   status: "preview"
+  config:
+    - "quarkus.open-rpc."

@@ -41,6 +41,288 @@ ifndef::add-copy-button-to-env-var[]
 Environment variable: `+++QUARKUS_JSON_RPC_WEB_SOCKET_PATH+++`
 endif::add-copy-button-to-env-var[]
 --|string 
-|`/quarkus/json-rpc`
+|`quarkus/json-rpc`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-enabled]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-enabled[quarkus.json-rpc.open-rpc.enabled]`
+
+
+[.description]
+--
+Enable JsonRPC OpenRPC Spec
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_ENABLED+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_ENABLED+++`
+endif::add-copy-button-to-env-var[]
+--|boolean 
+|`true`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-base-path]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-base-path[quarkus.json-rpc.open-rpc.base-path]`
+
+
+[.description]
+--
+HTTP Path for the JsonRPC OpenRPC DevUI
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_BASE_PATH+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_BASE_PATH+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`open-rpc`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-playground-path]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-playground-path[quarkus.json-rpc.open-rpc.playground-path]`
+
+
+[.description]
+--
+HTTP Path for the JsonRPC OpenRPC Playground
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_PLAYGROUND_PATH+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_PLAYGROUND_PATH+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`playground`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-path]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-path[quarkus.json-rpc.open-rpc.schema-path]`
+
+
+[.description]
+--
+HTTP Path for the JsonRPC OpenRPC Spec file
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_PATH+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_PATH+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`openrpc.json`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-available]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-available[quarkus.json-rpc.open-rpc.schema-available]`
+
+
+[.description]
+--
+If the OpenRPC Schema file should be accessible
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_AVAILABLE+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_AVAILABLE+++`
+endif::add-copy-button-to-env-var[]
+--|boolean 
+|`true`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-store-schema-directory]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-store-schema-directory[quarkus.json-rpc.open-rpc.store-schema-directory]`
+
+
+[.description]
+--
+Location to store the generated OpenRPC Schema file
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_STORE_SCHEMA_DIRECTORY+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_STORE_SCHEMA_DIRECTORY+++`
+endif::add-copy-button-to-env-var[]
+--|path 
+|`/open-rpc`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-version]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-version[quarkus.json-rpc.open-rpc.schema.version]`
+
+
+[.description]
+--
+OpenRPC Schema Spec version
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_VERSION+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_VERSION+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`1.2.6`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-title]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-title[quarkus.json-rpc.open-rpc.schema.info.title]`
+
+
+[.description]
+--
+Application Title
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_TITLE+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_TITLE+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`JsonRPC API`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-description]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-description[quarkus.json-rpc.open-rpc.schema.info.description]`
+
+
+[.description]
+--
+Application Description
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_DESCRIPTION+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_DESCRIPTION+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`A JsonRPC API`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-terms-of-service]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-terms-of-service[quarkus.json-rpc.open-rpc.schema.info.terms-of-service]`
+
+
+[.description]
+--
+Terms Of Service URL
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_TERMS_OF_SERVICE+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_TERMS_OF_SERVICE+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-version]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-version[quarkus.json-rpc.open-rpc.schema.info.version]`
+
+
+[.description]
+--
+Application version
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_VERSION+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_VERSION+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|`0.0.0`
+
+
+h|[[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-application-owner-contact-information]]link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-application-owner-contact-information[Application Owner Contact Information]
+This configuration section is optional
+h|Type
+h|Default
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-name]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-name[quarkus.json-rpc.open-rpc.schema.info.contact.name]`
+
+
+[.description]
+--
+Name of the contact
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_CONTACT_NAME+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_CONTACT_NAME+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-url]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-url[quarkus.json-rpc.open-rpc.schema.info.contact.url]`
+
+
+[.description]
+--
+URL to the contact
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_CONTACT_URL+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_CONTACT_URL+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-email]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-contact-email[quarkus.json-rpc.open-rpc.schema.info.contact.email]`
+
+
+[.description]
+--
+Email of the contact
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_CONTACT_EMAIL+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_CONTACT_EMAIL+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
+
+
+h|[[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-license]]link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-license[]
+This configuration section is optional
+h|Type
+h|Default
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-license-name]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-license-name[quarkus.json-rpc.open-rpc.schema.info.license.name]`
+
+
+[.description]
+--
+Name of License
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_LICENSE_NAME+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_LICENSE_NAME+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-license-url]]`link:#quarkus-json-rpc_quarkus-json-rpc-open-rpc-schema-info-license-url[quarkus.json-rpc.open-rpc.schema.info.license.url]`
+
+
+[.description]
+--
+URL of the License
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_LICENSE_URL+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_OPEN_RPC_SCHEMA_INFO_LICENSE_URL+++`
+endif::add-copy-button-to-env-var[]
+--|string 
+|
 
 |===

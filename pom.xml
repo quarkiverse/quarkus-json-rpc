@@ -18,14 +18,15 @@
         <module>runtime</module>
         <module>docs</module>
         <module>sample</module>
+        <module>open-rpc-schema</module>
     </modules>
 
     <scm>
         <connection>scm:git:git@github.com:quarkiverse/quarkus-json-rpc.git</connection>
         <developerConnection>scm:git:git@github.com:quarkiverse/quarkus-json-rpc.git</developerConnection>
         <url>https://github.com/quarkiverse/quarkus-json-rpc</url>
-      <tag>HEAD</tag>
-  </scm>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
         <compiler-plugin.version>3.13.0</compiler-plugin.version>
