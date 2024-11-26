@@ -10,31 +10,36 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import jakarta.enterprise.context.ApplicationScoped;
+
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationTarget;
 import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.ClassType;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.JandexReflection;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.Type;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
+import io.quarkiverse.jsonrpc.runtime.JsonRPCWebSocket;
 import io.quarkiverse.jsonrpc.runtime.Keys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
-import io.quarkus.arc.deployment.AdditionalBeanBuildItem;
 import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.arc.deployment.BeanDefiningAnnotationBuildItem;
+import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
-import io.quarkus.deployment.builditem.AdditionalIndexedClassesBuildItem;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
@@ -62,33 +67,6 @@ public class JsonRPCProcessor {
         // Make ArC discover the beans marked with the @JsonRPCApi qualifier
         beanDefiningAnnotationProducer
                 .produce(new BeanDefiningAnnotationBuildItem(JSON_RPC_API, BuiltinScope.SINGLETON.getName()));
-    }
-
-    @BuildStep
-    void additionalBean(BuildProducer<AdditionalBeanBuildItem> additionalBeanProducer,
-            BuildProducer<AdditionalIndexedClassesBuildItem> additionalIndexProducer) {
-        //List<JsonRPCProvidersBuildItem> jsonRPCProvidersBuildItems) {
-
-        // Make sure all JsonRPC Providers is in the index
-        //        for (JsonRPCProvidersBuildItem jsonRPCProvidersBuildItem : jsonRPCProvidersBuildItems) {
-        //
-        //            Class c = jsonRPCProvidersBuildItem.getJsonRPCMethodProviderClass();
-        //            additionalIndexProducer.produce(new AdditionalIndexedClassesBuildItem(c.getName()));
-        //            DotName defaultBeanScope = jsonRPCProvidersBuildItem.getDefaultBeanScope() == null
-        //                    ? BuiltinScope.APPLICATION.getName()
-        //                    : jsonRPCProvidersBuildItem.getDefaultBeanScope();
-        //
-        //            additionalBeanProducer.produce(AdditionalBeanBuildItem.builder()
-        //                    .addBeanClass(c)
-        //                    .setDefaultScope(defaultBeanScope)
-        //                    .setUnremovable().build());
-        //        }
-
-        additionalBeanProducer.produce(AdditionalBeanBuildItem.builder()
-                .addBeanClass(JsonRPCRouter.class)
-                .setDefaultScope(BuiltinScope.APPLICATION.getName())
-                .setUnremovable().build());
-
     }
 
     @BuildStep
@@ -212,23 +190,48 @@ public class JsonRPCProcessor {
     }
 
     @BuildStep
-    @Record(ExecutionTime.STATIC_INIT)
+    @Record(ExecutionTime.RUNTIME_INIT)
+    void createBeans(
+            JsonRPCConfig jsonRPCConfig,
+            JsonRPCRecorder recorder,
+            BuildProducer<SyntheticBeanBuildItem> beanProducer,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
+        if (jsonRPCConfig.webSocket.enabled) {
+            beanProducer.produce(SyntheticBeanBuildItem
+                    .configure(JsonRPCRouter.class)
+                    .setRuntimeInit()
+                    .unremovable()
+                    .addInjectionPoint(ClassType.create(ObjectMapper.class))
+                    .createWith(recorder.createJsonRpcRouter(jsonRPCMethodsBuildItem.getMethodsMap()))
+                    .scope(ApplicationScoped.class)
+                    .done());
+
+            beanProducer.produce(SyntheticBeanBuildItem
+                    .configure(JsonRPCWebSocket.class)
+                    .setRuntimeInit()
+                    .unremovable()
+                    .addInjectionPoint(ClassType.create(JsonRPCRouter.class))
+                    .createWith(recorder.createJsonRpcWebSocket())
+                    .scope(ApplicationScoped.class)
+                    .done());
+        }
+    }
+
+    @BuildStep
+    @Record(ExecutionTime.RUNTIME_INIT)
     void registerHandlers(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
             BuildProducer<RouteBuildItem> routeProducer,
-            HttpRootPathBuildItem httpRootPathBuildItem,
             BeanContainerBuildItem beanContainerBuildItem,
-            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
+            HttpRootPathBuildItem httpRootPathBuildItem) {
         if (jsonRPCConfig.webSocket.enabled) {
-            recorder.createJsonRpcRouter(beanContainerBuildItem.getValue(), jsonRPCMethodsBuildItem.getMethodsMap());
-
             // Websocket for JsonRPC comms
             routeProducer.produce(
                     httpRootPathBuildItem.routeBuilder()
                             .route(jsonRPCConfig.webSocket.path)
                             .routeConfigKey("quarkus.json-rpc.web-socket.path")
-                            .handler(recorder.webSocketHandler())
+                            .handler(recorder.webSocketHandler(beanContainerBuildItem.getValue()))
                             .build());
         }
     }

@@ -1,7 +1,5 @@
 package io.quarkiverse.jsonrpc.runtime;
 
-import jakarta.enterprise.inject.spi.CDI;
-
 import org.jboss.logging.Logger;
 
 import io.vertx.core.AsyncResult;
@@ -14,6 +12,12 @@ import io.vertx.ext.web.RoutingContext;
  */
 public class JsonRPCWebSocket implements Handler<RoutingContext> {
     private static final Logger LOG = Logger.getLogger(JsonRPCWebSocket.class.getName());
+
+    private final JsonRPCRouter jsonRpcRouter;
+
+    public JsonRPCWebSocket(JsonRPCRouter jsonRpcRouter) {
+        this.jsonRpcRouter = jsonRpcRouter;
+    }
 
     @Override
     public void handle(RoutingContext event) {
@@ -35,7 +39,6 @@ public class JsonRPCWebSocket implements Handler<RoutingContext> {
     }
 
     private void addSocket(ServerWebSocket session) {
-        JsonRPCRouter jsonRpcRouter = CDI.current().select(JsonRPCRouter.class).get();
         jsonRpcRouter.addSocket(session);
     }
 
