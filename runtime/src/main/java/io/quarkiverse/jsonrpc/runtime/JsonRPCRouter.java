@@ -10,9 +10,6 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
@@ -38,6 +35,9 @@ import io.vertx.core.http.ServerWebSocket;
  */
 public class JsonRPCRouter {
     private static final Logger LOG = Logger.getLogger(JsonRPCRouter.class.getName());
+
+    private final JsonRPCCodec codec;
+
     private final Map<Integer, Cancellable> subscriptions = new ConcurrentHashMap<>();
 
     // Map json-rpc method to java in runtime classpath
@@ -46,16 +46,18 @@ public class JsonRPCRouter {
     private final Map<String, String> orderedParameterKeyToNamedKey = new HashMap<>();
 
     private static final List<ServerWebSocket> SESSIONS = Collections.synchronizedList(new ArrayList<>());
-    private JsonRPCCodec codec = new JsonRPCCodec();
 
-    private ManagedContext currentManagedContext;
+    public JsonRPCRouter(JsonRPCCodec codec, Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+        this.codec = codec;
+        populateJsonRPCMethods(methodsMap);
+    }
 
     /**
      * This gets called on build to build into of the classes we are going to call in runtime
      *
      * @param methodsMap
      */
-    public void populateJsonRPCMethods(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+    private void populateJsonRPCMethods(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
         for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> method : methodsMap.entrySet()) {
             JsonRPCMethodName methodName = method.getKey();
             JsonRPCMethod jsonRpcMethod = method.getValue();
@@ -85,20 +87,11 @@ public class JsonRPCRouter {
         }
     }
 
-    @PostConstruct
-    public void init() {
-        this.currentManagedContext = Arc.container().requestContext();
-    }
-
-    @PreDestroy
-    public void destroy() {
-        currentManagedContext.terminate();
-    }
-
     @SuppressWarnings("unchecked")
     private Uni<?> invoke(ReflectionInfo info, Object target, Object[] args) {
         Context vc = Vertx.currentContext();
 
+        ManagedContext currentManagedContext = Arc.container().requestContext();
         try {
             if (!currentManagedContext.isActive()) {
                 currentManagedContext.activate();
@@ -135,6 +128,7 @@ public class JsonRPCRouter {
         } catch (Throwable e) {
             return Uni.createFrom().failure(e);
         } finally {
+            // TODO: we probably only want to deactivate if it was originally not active
             currentManagedContext.deactivate();
         }
     }

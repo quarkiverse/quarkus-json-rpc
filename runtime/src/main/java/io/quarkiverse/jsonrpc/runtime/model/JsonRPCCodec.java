@@ -7,15 +7,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
-import io.quarkus.arc.Arc;
 import io.vertx.core.http.ServerWebSocket;
 
 public class JsonRPCCodec {
     private static final Logger LOG = Logger.getLogger(JsonRPCCodec.class);
     private final ObjectMapper objectMapper;
 
-    public JsonRPCCodec() {
-        this.objectMapper = Arc.container().select(ObjectMapper.class).get();
+    public JsonRPCCodec(ObjectMapper originalObjectMapper) {
+        this.objectMapper = originalObjectMapper.copy(); // we should never change settings of the original ObjectMapper as they could have global impact
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
     }
 
