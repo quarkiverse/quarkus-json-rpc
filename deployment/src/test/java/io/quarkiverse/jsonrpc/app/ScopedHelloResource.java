@@ -2,7 +2,7 @@ package io.quarkiverse.jsonrpc.app;
 
 import java.time.Duration;
 
-import io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi;
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;

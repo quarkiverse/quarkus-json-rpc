@@ -1,4 +1,4 @@
-package io.quarkiverse.jsonrpc.runtime.api;
+package io.quarkiverse.jsonrpc.api;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi;
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
 import io.quarkiverse.jsonrpc.sample.model.Pojo;
 import io.quarkiverse.jsonrpc.sample.model.Pojo2;
 import io.smallrye.mutiny.Multi;

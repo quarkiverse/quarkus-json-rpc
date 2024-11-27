@@ -51,7 +51,7 @@ import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;
 
 public class JsonRPCProcessor {
-    private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi");
+    private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCApi");
     private static final String FEATURE = "json-rpc";
     private static final String CONSTRUCTOR = "<init>";
 
