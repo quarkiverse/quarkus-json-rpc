@@ -2,7 +2,7 @@ package io.quarkiverse.jsonrpc.sample;
 
 import java.time.Duration;
 
-import io.quarkiverse.jsonrpc.runtime.api.JsonRPCApi;
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
