@@ -40,9 +40,14 @@ public class JsonRPCCodec {
     }
 
     public void writeErrorResponse(ServerWebSocket socket, int id, String jsonRpcMethodName, Throwable exception) {
+        writeErrorResponse(socket, id, JsonRPCKeys.INTERNAL_ERROR, jsonRpcMethodName, exception);
+    }
+
+    public void writeErrorResponse(ServerWebSocket socket, int id, int code, String jsonRpcMethodName,
+            Throwable exception) {
         LOG.error("Error in JsonRPC Call", exception);
         writeResponse(socket, new JsonRPCResponse(id,
-                new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR,
+                new JsonRPCResponse.Error(code,
                         "Method [" + jsonRpcMethodName + "] failed: " + exception.getMessage())));
     }
 

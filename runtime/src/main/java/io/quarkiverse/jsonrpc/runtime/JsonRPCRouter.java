@@ -260,7 +260,7 @@ public class JsonRPCRouter {
         }
 
         if (subscriptionId == null) {
-            codec.writeErrorResponse(s, jsonRpcRequest.getId(), JsonRPCKeys.UNSUBSCRIBE,
+            codec.writeErrorResponse(s, jsonRpcRequest.getId(), JsonRPCKeys.INVALID_PARAMS, JsonRPCKeys.UNSUBSCRIBE,
                     new IllegalArgumentException("Missing required parameter: subscription ID"));
             return;
         }
