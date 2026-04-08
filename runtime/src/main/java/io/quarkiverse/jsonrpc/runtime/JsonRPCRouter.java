@@ -3,12 +3,12 @@ package io.quarkiverse.jsonrpc.runtime;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 import org.jboss.logging.Logger;
 
@@ -38,14 +38,12 @@ public class JsonRPCRouter {
 
     private final JsonRPCCodec codec;
 
-    private final Map<Integer, Cancellable> subscriptions = new ConcurrentHashMap<>();
+    private final Map<ServerWebSocket, Map<Integer, Cancellable>> socketSubscriptions = new ConcurrentHashMap<>();
 
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
 
     private final Map<String, String> orderedParameterKeyToNamedKey = new HashMap<>();
-
-    private static final List<ServerWebSocket> SESSIONS = Collections.synchronizedList(new ArrayList<>());
 
     public JsonRPCRouter(JsonRPCCodec codec, Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
         this.codec = codec;
@@ -92,9 +90,11 @@ public class JsonRPCRouter {
         Context vc = Vertx.currentContext();
 
         ManagedContext currentManagedContext = Arc.container().requestContext();
+        boolean activated = false;
         try {
             if (!currentManagedContext.isActive()) {
                 currentManagedContext.activate();
+                activated = true;
             }
             if (info.isReturningUni()) {
                 if (info.isExplicitlyBlocking()) {
@@ -128,28 +128,25 @@ public class JsonRPCRouter {
         } catch (Throwable e) {
             return Uni.createFrom().failure(e);
         } finally {
-            // TODO: we probably only want to deactivate if it was originally not active
-            currentManagedContext.deactivate();
+            if (activated) {
+                currentManagedContext.deactivate();
+            }
         }
     }
 
     public void addSocket(ServerWebSocket socket) {
-        SESSIONS.add(socket);
         socket.textMessageHandler((e) -> {
             JsonRPCRequest jsonRpcRequest = codec.readRequest(e);
             route(jsonRpcRequest, socket);
-        }).closeHandler((e) -> {
-            purge();
         });
-        purge();
-    }
-
-    private void purge() {
-        for (ServerWebSocket s : new ArrayList<>(SESSIONS)) {
-            if (s.isClosed()) {
-                SESSIONS.remove(s);
+        socket.closeHandler((e) -> {
+            Map<Integer, Cancellable> subs = socketSubscriptions.remove(socket);
+            if (subs != null) {
+                for (Cancellable cancellable : subs.values()) {
+                    cancellable.cancel();
+                }
             }
-        }
+        });
     }
 
     @SuppressWarnings("unchecked")
@@ -169,7 +166,7 @@ public class JsonRPCRouter {
             if (reflectionInfo.isReturningMulti()) {
                 Multi<?> multi;
                 try {
-                    if (jsonRpcRequest.hasNamedParams()) {
+                    if (jsonRpcRequest.hasParams()) {
                         Object[] args = getArgsAsObjects(reflectionInfo.params, jsonRpcRequest);
                         multi = (Multi<?>) reflectionInfo.method.invoke(target, args);
                     } else {
@@ -178,22 +175,26 @@ public class JsonRPCRouter {
                 } catch (Exception e) {
                     LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), e);
+                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(e));
                     return;
                 }
 
+                int requestId = jsonRpcRequest.getId();
+                Map<Integer, Cancellable> subs = this.socketSubscriptions.computeIfAbsent(s,
+                        k -> new ConcurrentHashMap<>());
                 Cancellable cancellable = multi.subscribe()
                         .with(
                                 item -> {
-                                    codec.writeResponse(s, jsonRpcRequest.getId(), item);
+                                    codec.writeResponse(s, requestId, item);
                                 },
                                 failure -> {
-                                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), failure);
-                                    this.subscriptions.remove(jsonRpcRequest.getId());
+                                    codec.writeErrorResponse(s, requestId, jsonRpcRequest.getMethod(),
+                                            unwrap(failure));
+                                    subs.remove(requestId);
                                 },
-                                () -> this.subscriptions.remove(jsonRpcRequest.getId()));
+                                () -> subs.remove(requestId));
 
-                this.subscriptions.put(jsonRpcRequest.getId(), cancellable);
+                subs.put(requestId, cancellable);
                 codec.writeResponse(s, jsonRpcRequest.getId(), null);
             } else {
                 // The invocation will return a Uni<JsonObject>
@@ -208,32 +209,33 @@ public class JsonRPCRouter {
                 } catch (Exception e) {
                     LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), e);
+                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(e));
                     return;
                 }
                 uni.subscribe()
                         .with(item -> {
                             codec.writeResponse(s, jsonRpcRequest.getId(), item);
                         }, failure -> {
-                            Throwable actualFailure;
-                            // If the jsonrpc method is actually
-                            // synchronous, the failure is wrapped in an
-                            // InvocationTargetException, so unwrap it here
-                            if (failure instanceof InvocationTargetException f) {
-                                actualFailure = f.getTargetException();
-                            } else if (failure.getCause() != null
-                                    && failure.getCause() instanceof InvocationTargetException f) {
-                                actualFailure = f.getTargetException();
-                            } else {
-                                actualFailure = failure;
-                            }
-                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), actualFailure);
+                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(failure));
                         });
             }
         } else {
             // Method not found
             codec.writeMethodNotFoundResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod());
         }
+    }
+
+    private static Throwable unwrap(Throwable failure) {
+        Throwable current = failure;
+        if (current instanceof InvocationTargetException f && f.getTargetException() != null) {
+            current = f.getTargetException();
+        } else if (current.getCause() instanceof InvocationTargetException f && f.getTargetException() != null) {
+            current = f.getTargetException();
+        }
+        if (current instanceof ExecutionException && current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current;
     }
 
     private Object[] getArgsAsObjects(Map<String, Class> params, JsonRPCRequest jsonRpcRequest) {

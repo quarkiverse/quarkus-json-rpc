@@ -20,6 +20,10 @@ public class JsonRPCRequest {
     private final ObjectMapper objectMapper;
     private final JsonNode jsonNode;
     private final ParamOption paramOption;
+    private Map<String, Object> cachedNamedParams;
+    private Object[] cachedPositionedParams;
+    private boolean namedParamsParsed;
+    private boolean positionedParamsParsed;
 
     JsonRPCRequest(ObjectMapper objectMapper, JsonNode jsonNode) {
         this.objectMapper = objectMapper;
@@ -56,36 +60,42 @@ public class JsonRPCRequest {
     }
 
     public Map<String, Object> getNamedParams() {
-        if (paramOption != null && paramOption.equals(ParamOption.OBJECT)) {
-            ObjectNode paramsObject = jsonNode.withObject(PARAMS);
-            if (paramsObject != null && paramsObject.size() > 0) {
-                try {
-                    return objectMapper.treeToValue(paramsObject, Map.class);
-                } catch (IllegalArgumentException | JsonProcessingException ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-        }
-        return null;
-    }
-
-    public Object[] getPositionedParams() {
-        if (paramOption != null && paramOption.equals(ParamOption.ARRAY)) {
-            ArrayNode paramsObject = jsonNode.withArrayProperty(PARAMS);
-            if (paramsObject != null && !paramsObject.isEmpty()) {
-                Object[] objects = new Object[paramsObject.size()];
-                for (int i = 0; i < paramsObject.size(); i++) {
-                    JsonNode node = paramsObject.get(i);
+        if (!namedParamsParsed) {
+            namedParamsParsed = true;
+            if (paramOption != null && paramOption.equals(ParamOption.OBJECT)) {
+                ObjectNode paramsObject = jsonNode.withObject(PARAMS);
+                if (paramsObject != null && paramsObject.size() > 0) {
                     try {
-                        objects[i] = objectMapper.treeToValue(node, Object.class);
+                        cachedNamedParams = objectMapper.treeToValue(paramsObject, Map.class);
                     } catch (IllegalArgumentException | JsonProcessingException ex) {
                         throw new RuntimeException(ex);
                     }
                 }
-                return objects;
             }
         }
-        return null;
+        return cachedNamedParams;
+    }
+
+    public Object[] getPositionedParams() {
+        if (!positionedParamsParsed) {
+            positionedParamsParsed = true;
+            if (paramOption != null && paramOption.equals(ParamOption.ARRAY)) {
+                ArrayNode paramsObject = jsonNode.withArrayProperty(PARAMS);
+                if (paramsObject != null && !paramsObject.isEmpty()) {
+                    Object[] objects = new Object[paramsObject.size()];
+                    for (int i = 0; i < paramsObject.size(); i++) {
+                        JsonNode node = paramsObject.get(i);
+                        try {
+                            objects[i] = objectMapper.treeToValue(node, Object.class);
+                        } catch (IllegalArgumentException | JsonProcessingException ex) {
+                            throw new RuntimeException(ex);
+                        }
+                    }
+                    cachedPositionedParams = objects;
+                }
+            }
+        }
+        return cachedPositionedParams;
     }
 
     public <T> T getNamedParam(String key, Class<T> paramType) {

@@ -43,9 +43,9 @@ public class JsonRPCCodec {
                         "Method [" + jsonRpcMethodName + "] failed: " + exception.getMessage())));
     }
 
-    private void writeResponse(ServerWebSocket socker, JsonRPCResponse response) {
+    private void writeResponse(ServerWebSocket socket, JsonRPCResponse response) {
         try {
-            socker.writeTextMessage(objectMapper.writeValueAsString(response));
+            socket.writeTextMessage(objectMapper.writeValueAsString(response));
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }

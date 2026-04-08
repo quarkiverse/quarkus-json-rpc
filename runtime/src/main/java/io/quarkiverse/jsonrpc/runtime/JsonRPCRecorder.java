@@ -27,15 +27,6 @@ public class JsonRPCRecorder {
         };
     }
 
-    public Function<SyntheticCreationalContext<JsonRPCWebSocket>, JsonRPCWebSocket> createJsonRpcWebSocket() {
-        return new Function<>() {
-            @Override
-            public JsonRPCWebSocket apply(SyntheticCreationalContext<JsonRPCWebSocket> context) {
-                return new JsonRPCWebSocket(context.getInjectedReference(JsonRPCRouter.class));
-            }
-        };
-    }
-
     public Handler<RoutingContext> webSocketHandler(BeanContainer beanContainer) {
         return new JsonRPCWebSocket(beanContainer.beanInstance(JsonRPCRouter.class));
     }

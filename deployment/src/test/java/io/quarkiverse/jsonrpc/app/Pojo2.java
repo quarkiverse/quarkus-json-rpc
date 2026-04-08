@@ -8,6 +8,9 @@ public class Pojo2 {
     public String desc;
     public UUID ref;
 
+    public Pojo2() {
+    }
+
     public Pojo2(long id, String desc, UUID ref) {
         this.id = id;
         this.desc = desc;
