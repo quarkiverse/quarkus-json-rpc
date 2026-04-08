@@ -24,9 +24,11 @@ import org.jboss.jandex.Type;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
 import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
+import io.quarkiverse.jsonrpc.runtime.JsonRPCSessions;
 import io.quarkiverse.jsonrpc.runtime.Keys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
@@ -156,6 +158,8 @@ public class JsonRPCProcessor {
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod.class.getName());
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName.class.getName());
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCNotification.class.getName());
+        nativeClasses.add(JsonRPCSessions.class.getName());
+        nativeClasses.add(JsonRPCBroadcaster.class.getName());
 
         // Make sure it's available in native
         reflectiveClassProducer
@@ -173,11 +177,30 @@ public class JsonRPCProcessor {
             JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
         if (jsonRPCConfig.webSocket().enabled()) {
             beanProducer.produce(SyntheticBeanBuildItem
+                    .configure(JsonRPCSessions.class)
+                    .setRuntimeInit()
+                    .unremovable()
+                    .supplier(recorder.createJsonRpcSessions())
+                    .scope(ApplicationScoped.class)
+                    .done());
+
+            beanProducer.produce(SyntheticBeanBuildItem
                     .configure(JsonRPCRouter.class)
                     .setRuntimeInit()
                     .unremovable()
                     .addInjectionPoint(ClassType.create(ObjectMapper.class))
+                    .addInjectionPoint(ClassType.create(JsonRPCSessions.class))
                     .createWith(recorder.createJsonRpcRouter(jsonRPCMethodsBuildItem.getMethodsMap()))
+                    .scope(ApplicationScoped.class)
+                    .done());
+
+            beanProducer.produce(SyntheticBeanBuildItem
+                    .configure(JsonRPCBroadcaster.class)
+                    .setRuntimeInit()
+                    .unremovable()
+                    .addInjectionPoint(ClassType.create(ObjectMapper.class))
+                    .addInjectionPoint(ClassType.create(JsonRPCSessions.class))
+                    .createWith(recorder.createJsonRpcBroadcaster())
                     .scope(ApplicationScoped.class)
                     .done());
         }

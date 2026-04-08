@@ -48,8 +48,12 @@ public class JsonRPCRouter {
 
     private final Map<String, String> orderedParameterKeyToNamedKey = new HashMap<>();
 
-    public JsonRPCRouter(JsonRPCCodec codec, Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+    private final JsonRPCSessions sessions;
+
+    public JsonRPCRouter(JsonRPCCodec codec, JsonRPCSessions sessions,
+            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
         this.codec = codec;
+        this.sessions = sessions;
         populateJsonRPCMethods(methodsMap);
     }
 
@@ -138,11 +142,13 @@ public class JsonRPCRouter {
     }
 
     public void addSocket(ServerWebSocket socket) {
+        sessions.addSession(socket);
         socket.textMessageHandler((e) -> {
             JsonRPCRequest jsonRpcRequest = codec.readRequest(e);
             route(jsonRpcRequest, socket);
         });
         socket.closeHandler((e) -> {
+            sessions.removeSession(socket);
             Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
                 for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {

@@ -86,7 +86,7 @@ public class JsonRPCCodec {
         }
     }
 
-    private void writeNotification(ServerWebSocket socket, JsonRPCNotification notification) {
+    public void writeNotification(ServerWebSocket socket, JsonRPCNotification notification) {
         if (socket.isClosed()) {
             LOG.debugf("Dropping notification for closed WebSocket: method=%s", notification.method);
             return;
