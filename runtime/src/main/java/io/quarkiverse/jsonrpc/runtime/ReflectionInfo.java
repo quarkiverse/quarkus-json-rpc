@@ -25,10 +25,6 @@ public class ReflectionInfo {
         this.params = params;
         this.blocking = explicitlyBlocking;
         this.nonBlocking = explicitlyNonBlocking;
-        if (blocking && nonBlocking) {
-            throw new IllegalArgumentException("The method " + method.getDeclaringClass().getName() + "." + method.getName()
-                    + " cannot be annotated with @Blocking and @NonBlocking");
-        }
     }
 
     public boolean isReturningMulti() {

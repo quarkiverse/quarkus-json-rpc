@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.quarkiverse</groupId>
         <artifactId>quarkiverse-parent</artifactId>
-        <version>17</version>
+        <version>21</version>
     </parent>
     <groupId>io.quarkiverse.json-rpc</groupId>
     <artifactId>quarkus-json-rpc-parent</artifactId>
@@ -27,11 +27,11 @@
   </scm>
 
     <properties>
-        <compiler-plugin.version>3.13.0</compiler-plugin.version>
+        <compiler-plugin.version>3.14.0</compiler-plugin.version>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <quarkus.version>3.13.3</quarkus.version>
+        <quarkus.version>3.34.2</quarkus.version>
     </properties>
 
     <dependencyManagement>

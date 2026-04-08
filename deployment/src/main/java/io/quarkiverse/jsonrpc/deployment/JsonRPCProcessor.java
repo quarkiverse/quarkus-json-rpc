@@ -1,7 +1,6 @@
 package io.quarkiverse.jsonrpc.deployment;
 
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,7 +27,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
-import io.quarkiverse.jsonrpc.runtime.JsonRPCWebSocket;
 import io.quarkiverse.jsonrpc.runtime.Keys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
@@ -43,12 +41,10 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
-import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
-import io.smallrye.mutiny.Multi;
 
 public class JsonRPCProcessor {
     private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCApi");
@@ -72,19 +68,14 @@ public class JsonRPCProcessor {
     @BuildStep
     void findAllJsonRPCMethods(BuildProducer<JsonRPCMethodsBuildItem> jsonRPCMethodsProvider,
             BuildProducer<ReflectiveClassBuildItem> reflectiveClassProducer,
-            CombinedIndexBuildItem combinedIndexBuildItem,
-            CurateOutcomeBuildItem curateOutcomeBuildItem) {
+            CombinedIndexBuildItem combinedIndexBuildItem) {
 
         IndexView index = combinedIndexBuildItem.getIndex();
 
         Collection<AnnotationInstance> jsonRPCApiAnnotatoins = index.getAnnotations(JSON_RPC_API);
 
-        Map<JsonRPCMethodName, JsonRPCMethod> methodsMap = new HashMap<>(); // All methods so that we can build the reflection
-
-        List<String> requestResponseMethods = new ArrayList<>(); // All requestResponse methods for validation on the client side
-        List<String> subscriptionMethods = new ArrayList<>(); // All subscription methods for validation on the client side
-
-        Set<String> nativeClasses = new HashSet<>(); // Gather all classes that should be registered for native
+        Map<JsonRPCMethodName, JsonRPCMethod> methodsMap = new HashMap<>();
+        Set<String> nativeClasses = new HashSet<>();
 
         // Let's use the Jandex index to find all methods
         for (AnnotationInstance annotationInstance : jsonRPCApiAnnotatoins) {
@@ -105,9 +96,13 @@ public class JsonRPCProcessor {
                     if (Modifier.isPublic(method.flags())) { // Only allow public methods
                         if (method.returnType().kind() != Type.Kind.VOID) { // TODO: Only allow method with response ? Maybe not
 
-                            String fullName = null;
+                            if (method.hasAnnotation(Blocking.class) && method.hasAnnotation(NonBlocking.class)) {
+                                throw new IllegalArgumentException(
+                                        "Method " + classInfo.name() + "." + method.name()
+                                                + " cannot be annotated with both @Blocking and @NonBlocking");
+                            }
 
-                            // Also create the map to pass to the runtime for the relection calls
+                            String fullName = null;
 
                             if (method.parametersCount() > 0) {
                                 Map<String, Class> params = new LinkedHashMap<>(); // Keep the order
@@ -127,7 +122,9 @@ public class JsonRPCProcessor {
                                         .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
 
-                                nativeClasses.addAll(List.copyOf(params.keySet()));
+                                for (Class paramClass : params.values()) {
+                                    nativeClasses.add(paramClass.getName());
+                                }
                             } else {
                                 fullName = Keys.createKey(scope, method.name());
                                 JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
@@ -144,39 +141,16 @@ public class JsonRPCProcessor {
                                 nativeClasses.add(returnType);
                             }
 
-                            // Create list of available methods for the Javascript side.
-                            if (method.returnType().name().equals(DotName.createSimple(Multi.class.getName()))) {
-                                subscriptionMethods.add(fullName);
-                            } else {
-                                requestResponseMethods.add(fullName);
-                            }
                         }
                     }
                 }
             }
 
-            // TODO
-            //            if (!jsonRpcMethods.isEmpty()) {
-            //                extensionMethodsMap.put(extension, jsonRpcMethods);
-            //            }
         }
 
-        //        if (!methodsMap.isEmpty()) {
         jsonRPCMethodsProvider.produce(new JsonRPCMethodsBuildItem(methodsMap));
-        //        }
 
-        // TODO: This needs to be send via connection init
-
-        //BuildTimeConstBuildItem methodInfo = new BuildTimeConstBuildItem("devui-jsonrpc");
-
-        //if (!subscriptionMethods.isEmpty()) {
-        //    methodInfo.addBuildTimeData("jsonRPCSubscriptions", subscriptionMethods);
-        //}
-        //if (!requestResponseMethods.isEmpty()) {
-        //    methodInfo.addBuildTimeData("jsonRPCMethods", requestResponseMethods);
-        //}
-
-        // Add know other classes to native
+        // Add known classes to native
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCResponse.class.getName());
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest.class.getName());
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod.class.getName());
@@ -196,22 +170,13 @@ public class JsonRPCProcessor {
             JsonRPCRecorder recorder,
             BuildProducer<SyntheticBeanBuildItem> beanProducer,
             JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
-        if (jsonRPCConfig.webSocket.enabled) {
+        if (jsonRPCConfig.webSocket().enabled()) {
             beanProducer.produce(SyntheticBeanBuildItem
                     .configure(JsonRPCRouter.class)
                     .setRuntimeInit()
                     .unremovable()
                     .addInjectionPoint(ClassType.create(ObjectMapper.class))
                     .createWith(recorder.createJsonRpcRouter(jsonRPCMethodsBuildItem.getMethodsMap()))
-                    .scope(ApplicationScoped.class)
-                    .done());
-
-            beanProducer.produce(SyntheticBeanBuildItem
-                    .configure(JsonRPCWebSocket.class)
-                    .setRuntimeInit()
-                    .unremovable()
-                    .addInjectionPoint(ClassType.create(JsonRPCRouter.class))
-                    .createWith(recorder.createJsonRpcWebSocket())
                     .scope(ApplicationScoped.class)
                     .done());
         }
@@ -225,11 +190,11 @@ public class JsonRPCProcessor {
             BuildProducer<RouteBuildItem> routeProducer,
             BeanContainerBuildItem beanContainerBuildItem,
             HttpRootPathBuildItem httpRootPathBuildItem) {
-        if (jsonRPCConfig.webSocket.enabled) {
+        if (jsonRPCConfig.webSocket().enabled()) {
             // Websocket for JsonRPC comms
             routeProducer.produce(
                     httpRootPathBuildItem.routeBuilder()
-                            .route(jsonRPCConfig.webSocket.path)
+                            .route(jsonRPCConfig.webSocket().path())
                             .routeConfigKey("quarkus.json-rpc.web-socket.path")
                             .handler(recorder.webSocketHandler(beanContainerBuildItem.getValue()))
                             .build());
