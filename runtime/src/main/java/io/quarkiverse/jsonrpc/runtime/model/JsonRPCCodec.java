@@ -1,5 +1,8 @@
 package io.quarkiverse.jsonrpc.runtime.model;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.jboss.logging.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -43,9 +46,44 @@ public class JsonRPCCodec {
                         "Method [" + jsonRpcMethodName + "] failed: " + exception.getMessage())));
     }
 
+    public void writeSubscriptionItem(ServerWebSocket socket, String subscriptionId, Object item) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
+        params.put(JsonRPCKeys.RESULT, item);
+        writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
+    }
+
+    public void writeSubscriptionError(ServerWebSocket socket, String subscriptionId, String methodName,
+            Throwable exception) {
+        LOG.error("Error in JsonRPC subscription", exception);
+        Map<String, Object> errorDetail = new LinkedHashMap<>();
+        errorDetail.put(JsonRPCKeys.CODE, JsonRPCKeys.INTERNAL_ERROR);
+        errorDetail.put(JsonRPCKeys.MESSAGE, "Method [" + methodName + "] failed: " + exception.getMessage());
+
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
+        params.put(JsonRPCKeys.ERROR, errorDetail);
+        writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
+    }
+
+    public void writeSubscriptionComplete(ServerWebSocket socket, String subscriptionId) {
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
+        params.put(JsonRPCKeys.COMPLETE, true);
+        writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
+    }
+
     private void writeResponse(ServerWebSocket socket, JsonRPCResponse response) {
         try {
             socket.writeTextMessage(objectMapper.writeValueAsString(response));
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    private void writeNotification(ServerWebSocket socket, JsonRPCNotification notification) {
+        try {
+            socket.writeTextMessage(objectMapper.writeValueAsString(notification));
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }

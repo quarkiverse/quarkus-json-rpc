@@ -12,6 +12,9 @@ public interface JsonRPCKeys {
     public static final String ERROR = "error";
     public static final String METHOD = "method";
     public static final String PARAMS = "params";
+    public static final String SUBSCRIPTION = "subscription";
+    public static final String COMPLETE = "complete";
+    public static final String UNSUBSCRIBE = "unsubscribe";
 
     public static final int PARSE_ERROR = -32700; // Parse error. Invalid JSON was received by the server. An error occurred on the server while parsing the JSON text.
     public static final int INVALID_REQUEST = -32600; // Invalid Request. The JSON sent is not a valid Request object.

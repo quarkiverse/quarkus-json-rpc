@@ -155,6 +155,7 @@ public class JsonRPCProcessor {
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest.class.getName());
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod.class.getName());
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName.class.getName());
+        nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCNotification.class.getName());
 
         // Make sure it's available in native
         reflectiveClassProducer

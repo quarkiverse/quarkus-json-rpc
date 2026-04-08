@@ -58,7 +58,7 @@ This follows the standard Quarkus extension split:
 - `@NonBlocking`: forces execution on the event loop
 - `@Blocking`: forces execution on worker thread (explicit)
 - `Uni<T>` return: async, non-blocking by default; `@Blocking` wraps in `executeBlocking()`
-- `Multi<T>` return: streaming subscription with automatic cancellation tracking
+- `Multi<T>` return: streaming subscription using JSON-RPC 2.0 notifications. Ack returns a subscription ID, items are sent as notifications with `method: "subscription"`, completion and error are signaled via notifications. Supports explicit `unsubscribe` by subscription ID
 
 **Configuration** (build-time):
 - `quarkus.json-rpc.web-socket.enabled` (default: `true`)
