@@ -1,5 +1,7 @@
 package io.quarkiverse.jsonrpc.app;
 
+import java.util.Set;
+
 import jakarta.inject.Inject;
 
 import io.quarkiverse.jsonrpc.api.JsonRPCApi;
@@ -26,5 +28,10 @@ public class BroadcastResource {
     @NonBlocking
     public int getSessionCount() {
         return broadcaster.connectedSessions().size();
+    }
+
+    @NonBlocking
+    public Set<String> getSessionIds() {
+        return broadcaster.connectedSessions();
     }
 }

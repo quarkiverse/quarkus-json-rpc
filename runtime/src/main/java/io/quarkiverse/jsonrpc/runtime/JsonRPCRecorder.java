@@ -23,13 +23,22 @@ public class JsonRPCRecorder {
         return JsonRPCSessions::new;
     }
 
+    public Function<SyntheticCreationalContext<JsonRPCCodec>, JsonRPCCodec> createJsonRpcCodec() {
+        return new Function<>() {
+            @Override
+            public JsonRPCCodec apply(SyntheticCreationalContext<JsonRPCCodec> context) {
+                return new JsonRPCCodec(context.getInjectedReference(ObjectMapper.class));
+            }
+        };
+    }
+
     public Function<SyntheticCreationalContext<JsonRPCRouter>, JsonRPCRouter> createJsonRpcRouter(
             Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
         return new Function<>() {
             @Override
             public JsonRPCRouter apply(SyntheticCreationalContext<JsonRPCRouter> context) {
                 return new JsonRPCRouter(
-                        new JsonRPCCodec(context.getInjectedReference(ObjectMapper.class)),
+                        context.getInjectedReference(JsonRPCCodec.class),
                         context.getInjectedReference(JsonRPCSessions.class),
                         methodsMap);
             }
@@ -41,7 +50,7 @@ public class JsonRPCRecorder {
             @Override
             public JsonRPCBroadcaster apply(SyntheticCreationalContext<JsonRPCBroadcaster> context) {
                 return new JsonRPCBroadcaster(
-                        new JsonRPCCodec(context.getInjectedReference(ObjectMapper.class)),
+                        context.getInjectedReference(JsonRPCCodec.class),
                         context.getInjectedReference(JsonRPCSessions.class));
             }
         };

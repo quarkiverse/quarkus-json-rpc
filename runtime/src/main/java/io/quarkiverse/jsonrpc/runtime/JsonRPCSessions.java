@@ -1,7 +1,7 @@
 package io.quarkiverse.jsonrpc.runtime;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,13 +61,13 @@ public class JsonRPCSessions {
      * @return all currently connected sockets
      */
     public Collection<ServerWebSocket> getAllSockets() {
-        return Collections.unmodifiableCollection(idToSocket.values());
+        return List.copyOf(idToSocket.values());
     }
 
     /**
      * @return the set of all connected session IDs
      */
     public Set<String> getSessionIds() {
-        return Collections.unmodifiableSet(idToSocket.keySet());
+        return Set.copyOf(idToSocket.keySet());
     }
 }

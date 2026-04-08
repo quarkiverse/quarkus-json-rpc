@@ -30,6 +30,7 @@ import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCSessions;
 import io.quarkiverse.jsonrpc.runtime.Keys;
+import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.deployment.BeanContainerBuildItem;
@@ -185,10 +186,19 @@ public class JsonRPCProcessor {
                     .done());
 
             beanProducer.produce(SyntheticBeanBuildItem
-                    .configure(JsonRPCRouter.class)
+                    .configure(JsonRPCCodec.class)
                     .setRuntimeInit()
                     .unremovable()
                     .addInjectionPoint(ClassType.create(ObjectMapper.class))
+                    .createWith(recorder.createJsonRpcCodec())
+                    .scope(ApplicationScoped.class)
+                    .done());
+
+            beanProducer.produce(SyntheticBeanBuildItem
+                    .configure(JsonRPCRouter.class)
+                    .setRuntimeInit()
+                    .unremovable()
+                    .addInjectionPoint(ClassType.create(JsonRPCCodec.class))
                     .addInjectionPoint(ClassType.create(JsonRPCSessions.class))
                     .createWith(recorder.createJsonRpcRouter(jsonRPCMethodsBuildItem.getMethodsMap()))
                     .scope(ApplicationScoped.class)
@@ -198,7 +208,7 @@ public class JsonRPCProcessor {
                     .configure(JsonRPCBroadcaster.class)
                     .setRuntimeInit()
                     .unremovable()
-                    .addInjectionPoint(ClassType.create(ObjectMapper.class))
+                    .addInjectionPoint(ClassType.create(JsonRPCCodec.class))
                     .addInjectionPoint(ClassType.create(JsonRPCSessions.class))
                     .createWith(recorder.createJsonRpcBroadcaster())
                     .scope(ApplicationScoped.class)
