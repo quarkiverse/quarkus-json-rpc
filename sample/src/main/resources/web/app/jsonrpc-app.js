@@ -3,7 +3,6 @@ import {LitElement, html, css} from 'lit';
 class JsonRpcApp extends LitElement {
 
     static properties = {
-        _ws: {state: true},
         _connected: {state: true},
         _method: {state: true},
         _params: {state: true},
@@ -239,6 +238,7 @@ class JsonRpcApp extends LitElement {
 
     constructor() {
         super();
+        this._ws = null;
         this._connected = false;
         this._method = 'HelloResource#hello';
         this._params = '';
@@ -286,7 +286,8 @@ class JsonRpcApp extends LitElement {
     }
 
     _addMessage(type, data) {
-        this._messages = [...this._messages, {type, data, time: new Date().toLocaleTimeString()}];
+        const updated = [...this._messages, {type, data, time: new Date().toLocaleTimeString()}];
+        this._messages = updated.length > 500 ? updated.slice(-500) : updated;
         this.updateComplete.then(() => {
             const container = this.shadowRoot.querySelector('.messages');
             if (container) container.scrollTop = container.scrollHeight;
@@ -313,15 +314,15 @@ class JsonRpcApp extends LitElement {
         this._ws.send(JSON.stringify(req));
 
         // Track subscription acks
-        const origOnMessage = this._ws.onmessage;
         const handler = (event) => {
             const data = JSON.parse(event.data);
             if (data.id === id && data.result && typeof data.result === 'string'
                 && data.result.match(/^[0-9a-f]{8}-/)) {
                 this._subscriptions = new Map([...this._subscriptions, [data.result, this._method]]);
+                this._ws.removeEventListener('message', handler);
             }
         };
-        this._ws.addEventListener('message', handler, {once: true});
+        this._ws.addEventListener('message', handler);
     }
 
     _unsubscribe(subscriptionId) {
@@ -346,20 +347,7 @@ class JsonRpcApp extends LitElement {
 
     _renderJson(obj) {
         const jsonStr = JSON.stringify(obj, null, 2);
-        const parts = [];
-        const re = /("(?:\\.|[^"\\])*")\s*:/g;
-        let last = 0;
-        let match;
-
-        // First pass: collect key positions
-        const keys = [];
-        while ((match = re.exec(jsonStr)) !== null) {
-            keys.push({start: match.index, end: match.index + match[1].length, key: match[1]});
-        }
-
-        // Build highlighted spans character by character using a simpler token approach
-        const highlighted = this._highlightJson(jsonStr);
-        return html`<div class="json-block">${highlighted}</div>`;
+        return html`<div class="json-block">${this._highlightJson(jsonStr)}</div>`;
     }
 
     _highlightJson(str) {
