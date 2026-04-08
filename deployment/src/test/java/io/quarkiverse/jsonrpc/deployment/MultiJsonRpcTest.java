@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkiverse.jsonrpc.app.MultiResource;
-import io.quarkus.test.QuarkusExtensionTest;
+import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.WebSocket;
@@ -24,7 +24,7 @@ import io.vertx.core.json.JsonObject;
 public class MultiJsonRpcTest {
 
     @RegisterExtension
-    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
+    public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
                 root.addClasses(MultiResource.class);
             });
