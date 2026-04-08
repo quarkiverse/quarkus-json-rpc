@@ -82,10 +82,16 @@ public class JsonRPCCodec {
     }
 
     private void writeNotification(ServerWebSocket socket, JsonRPCNotification notification) {
+        if (socket.isClosed()) {
+            LOG.debugf("Dropping notification for closed WebSocket: method=%s", notification.method);
+            return;
+        }
         try {
             socket.writeTextMessage(objectMapper.writeValueAsString(notification));
         } catch (JsonProcessingException ex) {
-            throw new RuntimeException(ex);
+            LOG.errorf(ex, "Failed to serialize JSON-RPC notification: method=%s", notification.method);
+            throw new RuntimeException(
+                    "Failed to serialize JSON-RPC notification for method '" + notification.method + "'", ex);
         }
     }
 }

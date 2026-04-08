@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.logging.Logger;
 
@@ -144,8 +145,12 @@ public class JsonRPCRouter {
         socket.closeHandler((e) -> {
             Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
-                for (Cancellable cancellable : subs.values()) {
-                    cancellable.cancel();
+                for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {
+                    try {
+                        entry.getValue().cancel();
+                    } catch (Exception ex) {
+                        LOG.warnf(ex, "Failed to cancel subscription %s on WebSocket close", entry.getKey());
+                    }
                 }
             }
         });
@@ -192,9 +197,11 @@ public class JsonRPCRouter {
                 Map<String, Cancellable> subs = this.socketSubscriptions.computeIfAbsent(s,
                         k -> new ConcurrentHashMap<>());
 
-                // Pre-register placeholder for synchronous Multi race safety
-                subs.put(subscriptionId, () -> {
+                // Use AtomicReference so cancel always targets the real cancellable,
+                // even if unsubscribe arrives before subscribe() returns
+                AtomicReference<Cancellable> ref = new AtomicReference<>(() -> {
                 });
+                subs.put(subscriptionId, () -> ref.get().cancel());
 
                 // Send ack before subscribing so client has subscription ID before items arrive
                 codec.writeResponse(s, jsonRpcRequest.getId(), subscriptionId);
@@ -211,8 +218,7 @@ public class JsonRPCRouter {
                                     subs.remove(subscriptionId);
                                 });
 
-                // Replace placeholder with real cancellable (no-op if already completed synchronously)
-                subs.replace(subscriptionId, cancellable);
+                ref.set(cancellable);
             } else {
                 // The invocation will return a Uni<JsonObject>
                 Uni<?> uni;
@@ -253,15 +259,19 @@ public class JsonRPCRouter {
             subscriptionId = jsonRpcRequest.getNamedParam(JsonRPCKeys.SUBSCRIPTION, String.class);
         }
 
-        if (subscriptionId != null) {
-            Map<String, Cancellable> subs = socketSubscriptions.get(s);
-            if (subs != null) {
-                Cancellable cancellable = subs.remove(subscriptionId);
-                if (cancellable != null) {
-                    cancellable.cancel();
-                    codec.writeResponse(s, jsonRpcRequest.getId(), true);
-                    return;
-                }
+        if (subscriptionId == null) {
+            codec.writeErrorResponse(s, jsonRpcRequest.getId(), JsonRPCKeys.UNSUBSCRIBE,
+                    new IllegalArgumentException("Missing required parameter: subscription ID"));
+            return;
+        }
+
+        Map<String, Cancellable> subs = socketSubscriptions.get(s);
+        if (subs != null) {
+            Cancellable cancellable = subs.remove(subscriptionId);
+            if (cancellable != null) {
+                cancellable.cancel();
+                codec.writeResponse(s, jsonRpcRequest.getId(), true);
+                return;
             }
         }
         codec.writeResponse(s, jsonRpcRequest.getId(), false);

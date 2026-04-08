@@ -71,6 +71,7 @@ public class MultiJsonRpcTest {
                 String msg = messages.poll(10, TimeUnit.SECONDS);
                 Assertions.assertNotNull(msg, "Expected item notification " + i);
                 JsonObject json = new JsonObject(msg);
+                Assertions.assertEquals("2.0", json.getString("jsonrpc"));
                 Assertions.assertFalse(json.containsKey("id"), "Notification must not have an id");
                 Assertions.assertEquals("subscription", json.getString("method"));
                 JsonObject params = json.getJsonObject("params");
@@ -83,6 +84,7 @@ public class MultiJsonRpcTest {
             String completeMsg = messages.poll(10, TimeUnit.SECONDS);
             Assertions.assertNotNull(completeMsg, "Expected completion notification");
             JsonObject complete = new JsonObject(completeMsg);
+            Assertions.assertEquals("2.0", complete.getString("jsonrpc"));
             Assertions.assertFalse(complete.containsKey("id"), "Completion notification must not have an id");
             Assertions.assertEquals("subscription", complete.getString("method"));
             JsonObject completeParams = complete.getJsonObject("params");
@@ -131,6 +133,7 @@ public class MultiJsonRpcTest {
                 String msg = messages.poll(10, TimeUnit.SECONDS);
                 Assertions.assertNotNull(msg, "Expected item notification " + i);
                 JsonObject json = new JsonObject(msg);
+                Assertions.assertEquals("2.0", json.getString("jsonrpc"));
                 Assertions.assertFalse(json.containsKey("id"), "Notification must not have an id");
                 Assertions.assertEquals("subscription", json.getString("method"));
                 JsonObject notifParams = json.getJsonObject("params");
@@ -143,6 +146,7 @@ public class MultiJsonRpcTest {
             String completeMsg = messages.poll(10, TimeUnit.SECONDS);
             Assertions.assertNotNull(completeMsg, "Expected completion notification");
             JsonObject complete = new JsonObject(completeMsg);
+            Assertions.assertEquals("2.0", complete.getString("jsonrpc"));
             Assertions.assertFalse(complete.containsKey("id"), "Completion notification must not have an id");
             Assertions.assertEquals("subscription", complete.getString("method"));
             JsonObject completeParams = complete.getJsonObject("params");
@@ -187,6 +191,7 @@ public class MultiJsonRpcTest {
             String errMsg = messages.poll(10, TimeUnit.SECONDS);
             Assertions.assertNotNull(errMsg, "Expected error notification");
             JsonObject errJson = new JsonObject(errMsg);
+            Assertions.assertEquals("2.0", errJson.getString("jsonrpc"));
             Assertions.assertFalse(errJson.containsKey("id"), "Error notification must not have an id");
             Assertions.assertEquals("subscription", errJson.getString("method"));
             JsonObject errParams = errJson.getJsonObject("params");
@@ -235,6 +240,7 @@ public class MultiJsonRpcTest {
                 String msg = messages.poll(10, TimeUnit.SECONDS);
                 Assertions.assertNotNull(msg, "Expected item notification " + i);
                 JsonObject json = new JsonObject(msg);
+                Assertions.assertEquals("2.0", json.getString("jsonrpc"));
                 Assertions.assertEquals("subscription", json.getString("method"));
             }
 
