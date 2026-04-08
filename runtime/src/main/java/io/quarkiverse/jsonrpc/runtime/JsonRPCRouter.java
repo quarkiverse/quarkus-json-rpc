@@ -6,13 +6,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.logging.Logger;
 
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
+import io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest;
@@ -38,7 +41,7 @@ public class JsonRPCRouter {
 
     private final JsonRPCCodec codec;
 
-    private final Map<ServerWebSocket, Map<Integer, Cancellable>> socketSubscriptions = new ConcurrentHashMap<>();
+    private final Map<ServerWebSocket, Map<String, Cancellable>> socketSubscriptions = new ConcurrentHashMap<>();
 
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
@@ -140,10 +143,14 @@ public class JsonRPCRouter {
             route(jsonRpcRequest, socket);
         });
         socket.closeHandler((e) -> {
-            Map<Integer, Cancellable> subs = socketSubscriptions.remove(socket);
+            Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
-                for (Cancellable cancellable : subs.values()) {
-                    cancellable.cancel();
+                for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {
+                    try {
+                        entry.getValue().cancel();
+                    } catch (Exception ex) {
+                        LOG.warnf(ex, "Failed to cancel subscription %s on WebSocket close", entry.getKey());
+                    }
                 }
             }
         });
@@ -151,6 +158,12 @@ public class JsonRPCRouter {
 
     @SuppressWarnings("unchecked")
     private void route(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
+        // Handle unsubscribe requests before normal method lookup
+        if (JsonRPCKeys.UNSUBSCRIBE.equals(jsonRpcRequest.getMethod())) {
+            handleUnsubscribe(jsonRpcRequest, s);
+            return;
+        }
+
         String key = Keys.createKey(jsonRpcRequest);
         if (jsonRpcRequest.hasPositionedParams()) {
             String opKey = Keys.createOrderedParameterKey(jsonRpcRequest);
@@ -179,23 +192,33 @@ public class JsonRPCRouter {
                     return;
                 }
 
-                int requestId = jsonRpcRequest.getId();
-                Map<Integer, Cancellable> subs = this.socketSubscriptions.computeIfAbsent(s,
+                String subscriptionId = UUID.randomUUID().toString();
+                String methodName = jsonRpcRequest.getMethod();
+                Map<String, Cancellable> subs = this.socketSubscriptions.computeIfAbsent(s,
                         k -> new ConcurrentHashMap<>());
+
+                // Use AtomicReference so cancel always targets the real cancellable,
+                // even if unsubscribe arrives before subscribe() returns
+                AtomicReference<Cancellable> ref = new AtomicReference<>(() -> {
+                });
+                subs.put(subscriptionId, () -> ref.get().cancel());
+
+                // Send ack before subscribing so client has subscription ID before items arrive
+                codec.writeResponse(s, jsonRpcRequest.getId(), subscriptionId);
+
                 Cancellable cancellable = multi.subscribe()
                         .with(
-                                item -> {
-                                    codec.writeResponse(s, requestId, item);
-                                },
+                                item -> codec.writeSubscriptionItem(s, subscriptionId, item),
                                 failure -> {
-                                    codec.writeErrorResponse(s, requestId, jsonRpcRequest.getMethod(),
-                                            unwrap(failure));
-                                    subs.remove(requestId);
+                                    codec.writeSubscriptionError(s, subscriptionId, methodName, unwrap(failure));
+                                    subs.remove(subscriptionId);
                                 },
-                                () -> subs.remove(requestId));
+                                () -> {
+                                    codec.writeSubscriptionComplete(s, subscriptionId);
+                                    subs.remove(subscriptionId);
+                                });
 
-                subs.put(requestId, cancellable);
-                codec.writeResponse(s, jsonRpcRequest.getId(), null);
+                ref.set(cancellable);
             } else {
                 // The invocation will return a Uni<JsonObject>
                 Uni<?> uni;
@@ -223,6 +246,35 @@ public class JsonRPCRouter {
             // Method not found
             codec.writeMethodNotFoundResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod());
         }
+    }
+
+    private void handleUnsubscribe(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
+        String subscriptionId = null;
+        if (jsonRpcRequest.hasPositionedParams()) {
+            Object[] params = jsonRpcRequest.getPositionedParams();
+            if (params.length > 0) {
+                subscriptionId = String.valueOf(params[0]);
+            }
+        } else if (jsonRpcRequest.hasNamedParams()) {
+            subscriptionId = jsonRpcRequest.getNamedParam(JsonRPCKeys.SUBSCRIPTION, String.class);
+        }
+
+        if (subscriptionId == null) {
+            codec.writeErrorResponse(s, jsonRpcRequest.getId(), JsonRPCKeys.INVALID_PARAMS, JsonRPCKeys.UNSUBSCRIBE,
+                    new IllegalArgumentException("Missing required parameter: subscription ID"));
+            return;
+        }
+
+        Map<String, Cancellable> subs = socketSubscriptions.get(s);
+        if (subs != null) {
+            Cancellable cancellable = subs.remove(subscriptionId);
+            if (cancellable != null) {
+                cancellable.cancel();
+                codec.writeResponse(s, jsonRpcRequest.getId(), true);
+                return;
+            }
+        }
+        codec.writeResponse(s, jsonRpcRequest.getId(), false);
     }
 
     private static Throwable unwrap(Throwable failure) {

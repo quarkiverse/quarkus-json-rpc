@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkiverse.jsonrpc.app.BlockingNonBlockingResource;
-import io.quarkus.test.QuarkusExtensionTest;
+import io.quarkus.test.QuarkusUnitTest;
 
 public class BlockingNonBlockingValidationTest {
 
     @RegisterExtension
-    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
+    public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
                 root.addClasses(BlockingNonBlockingResource.class);
             })

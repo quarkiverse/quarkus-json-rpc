@@ -1,5 +1,7 @@
 package io.quarkiverse.jsonrpc.app;
 
+import java.time.Duration;
+
 import io.quarkiverse.jsonrpc.api.JsonRPCApi;
 import io.smallrye.mutiny.Multi;
 
@@ -16,5 +18,10 @@ public class MultiResource {
 
     public Multi<String> failing() {
         return Multi.createFrom().failure(new RuntimeException("Multi test error"));
+    }
+
+    public Multi<String> ticking() {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(100))
+                .onItem().transform(n -> "tick-" + n);
     }
 }
