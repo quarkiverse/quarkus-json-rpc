@@ -8,8 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Flow;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.logging.Logger;
@@ -118,6 +120,20 @@ public class JsonRPCRouter {
                 } else {
                     return (Uni<?>) info.method.invoke(target, args);
                 }
+            } else if (info.isReturningCompletionStage()) {
+                if (info.isExplicitlyBlocking()) {
+                    SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
+                    final Promise<?> result = Promise.promise();
+                    Callable<Object> contextualCallable = threadContext.contextualCallable(() -> {
+                        CompletionStage<?> cs = (CompletionStage<?>) info.method.invoke(target, args);
+                        return cs.toCompletableFuture().get();
+                    });
+                    vc.executeBlocking(contextualCallable).onComplete((Handler<AsyncResult<Object>>) result);
+                    return Uni.createFrom().completionStage(result.future().toCompletionStage());
+                } else {
+                    CompletionStage<?> cs = (CompletionStage<?>) info.method.invoke(target, args);
+                    return Uni.createFrom().completionStage(cs);
+                }
             } else {
                 if (info.isExplicitlyNonBlocking()) {
                     return Uni.createFrom().item(Unchecked.supplier(() -> info.method.invoke(target, args)));
@@ -182,14 +198,20 @@ public class JsonRPCRouter {
             ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(key);
             Object target = Arc.container().select(reflectionInfo.bean).get();
 
-            if (reflectionInfo.isReturningMulti()) {
+            if (reflectionInfo.isReturningMulti() || reflectionInfo.isReturningFlowPublisher()) {
                 Multi<?> multi;
                 try {
+                    Object result;
                     if (jsonRpcRequest.hasParams()) {
                         Object[] args = getArgsAsObjects(reflectionInfo.params, jsonRpcRequest);
-                        multi = (Multi<?>) reflectionInfo.method.invoke(target, args);
+                        result = reflectionInfo.method.invoke(target, args);
                     } else {
-                        multi = (Multi<?>) reflectionInfo.method.invoke(target);
+                        result = reflectionInfo.method.invoke(target);
+                    }
+                    if (result instanceof Multi) {
+                        multi = (Multi<?>) result;
+                    } else {
+                        multi = Multi.createFrom().publisher((Flow.Publisher<?>) result);
                     }
                 } catch (Exception e) {
                     LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
