@@ -320,20 +320,9 @@ public class JsonRPCRouter {
 
     private Object[] getArgsAsObjects(ReflectionInfo reflectionInfo, JsonRPCRequest jsonRpcRequest) {
         Map<String, Class> params = reflectionInfo.params;
-        // Use the original bean class (not the CDI proxy) to get generic parameter types,
-        // because CDI proxies do not preserve generic type information
-        java.lang.reflect.Type[] genericTypes;
-        try {
-            Method beanMethod = reflectionInfo.bean.getMethod(
-                    reflectionInfo.method.getName(),
-                    reflectionInfo.method.getParameterTypes());
-            genericTypes = beanMethod.getGenericParameterTypes();
-        } catch (NoSuchMethodException e) {
-            genericTypes = reflectionInfo.method.getGenericParameterTypes();
-        }
+        java.lang.reflect.Type[] genericTypes = reflectionInfo.genericParameterTypes;
 
         List<Object> objects = new ArrayList<>();
-        int cnt = 0;
         int idx = 0;
         for (Map.Entry<String, Class> expectedParams : params.entrySet()) {
             String paramName = expectedParams.getKey();
@@ -342,7 +331,7 @@ public class JsonRPCRouter {
                 Object param = jsonRpcRequest.getNamedParam(paramName, genericType);
                 objects.add(param);
             } else if (jsonRpcRequest.hasPositionedParams()) {
-                Object param = jsonRpcRequest.getPositionedParam(++cnt, genericType);
+                Object param = jsonRpcRequest.getPositionedParam(idx + 1, genericType);
                 objects.add(param);
             }
             idx++;
