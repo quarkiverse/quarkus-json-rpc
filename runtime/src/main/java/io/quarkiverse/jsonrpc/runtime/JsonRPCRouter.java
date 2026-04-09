@@ -3,6 +3,7 @@ package io.quarkiverse.jsonrpc.runtime;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -158,11 +159,11 @@ public class JsonRPCRouter {
     }
 
     public Map<String, ReflectionInfo> getRegisteredMethods() {
-        return jsonRpcToJava;
+        return Collections.unmodifiableMap(jsonRpcToJava);
     }
 
     public Map<ServerWebSocket, Map<String, Cancellable>> getSocketSubscriptions() {
-        return socketSubscriptions;
+        return Collections.unmodifiableMap(socketSubscriptions);
     }
 
     public void addSocket(ServerWebSocket socket) {

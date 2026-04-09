@@ -268,6 +268,8 @@ public class JsonRPCProcessor {
                 execMode = "blocking";
             } else if (method.getExplicitlyNonBlocking()) {
                 execMode = "non-blocking";
+            } else if (isReactiveReturnType(method.getClazz(), method.getMethodName())) {
+                execMode = "non-blocking (default)";
             }
             methodData.put("executionMode", execMode);
 
@@ -319,6 +321,37 @@ public class JsonRPCProcessor {
                 .enableMcpFuctionByDefault()
                 .build();
         return actions;
+    }
+
+    private static final Set<String> REACTIVE_TYPES = Set.of(
+            "io.smallrye.mutiny.Uni",
+            "io.smallrye.mutiny.Multi",
+            "java.util.concurrent.CompletionStage",
+            "java.util.concurrent.Flow$Publisher");
+
+    private boolean isReactiveReturnType(Class<?> clazz, String methodName) {
+        try {
+            java.lang.reflect.Method m = null;
+            for (java.lang.reflect.Method candidate : clazz.getMethods()) {
+                if (candidate.getName().equals(methodName)) {
+                    m = candidate;
+                    break;
+                }
+            }
+            if (m != null) {
+                Class<?> returnType = m.getReturnType();
+                for (String reactiveType : REACTIVE_TYPES) {
+                    try {
+                        if (tccl.loadClass(reactiveType).isAssignableFrom(returnType)) {
+                            return true;
+                        }
+                    } catch (ClassNotFoundException ignored) {
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     private Set<String> getEffectiveTypes(Type type) {

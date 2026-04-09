@@ -5,6 +5,7 @@ import { JsonRpc } from 'jsonrpc';
 
 export class QwcJsonRpcTester extends LitElement {
 
+    static _nextRequestId = 0;
     jsonRpc = new JsonRpc(this);
 
     static styles = css`
@@ -100,7 +101,6 @@ export class QwcJsonRpcTester extends LitElement {
         this._result = null;
         this._streaming = false;
         this._streamItems = [];
-        this._observer = null;
     }
 
     connectedCallback() {
@@ -222,7 +222,7 @@ export class QwcJsonRpcTester extends LitElement {
 
         const ws = new WebSocket(wsUrl);
         const method = this._selectedMethod.key;
-        const requestId = Math.floor(Math.random() * 100000);
+        const requestId = ++QwcJsonRpcTester._nextRequestId;
 
         ws.onopen = () => {
             const request = {
@@ -275,6 +275,7 @@ export class QwcJsonRpcTester extends LitElement {
 
         ws.onerror = () => {
             this._result = 'WebSocket connection error';
+            ws.close();
         };
     }
 
@@ -282,7 +283,7 @@ export class QwcJsonRpcTester extends LitElement {
         if (this._ws && this._subscriptionId) {
             const request = {
                 jsonrpc: '2.0',
-                id: Math.floor(Math.random() * 100000),
+                id: ++QwcJsonRpcTester._nextRequestId,
                 method: 'unsubscribe',
                 params: [this._subscriptionId],
             };
