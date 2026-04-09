@@ -1,6 +1,7 @@
 package io.quarkiverse.jsonrpc.deployment;
 
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +31,7 @@ import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCSessions;
 import io.quarkiverse.jsonrpc.runtime.Keys;
+import io.quarkiverse.jsonrpc.runtime.devui.JsonRPCDevUIService;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
@@ -37,6 +39,7 @@ import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.arc.deployment.BeanDefiningAnnotationBuildItem;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
+import io.quarkus.deployment.IsLocalDevelopment;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
@@ -44,6 +47,10 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
+import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
+import io.quarkus.devui.spi.buildtime.BuildTimeActionBuildItem;
+import io.quarkus.devui.spi.page.CardPageBuildItem;
+import io.quarkus.devui.spi.page.Page;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
 import io.smallrye.common.annotation.Blocking;
@@ -227,6 +234,124 @@ public class JsonRPCProcessor {
                             .handler(recorder.webSocketHandler(beanContainerBuildItem.getValue()))
                             .build());
         }
+    }
+
+    // Dev UI
+
+    @BuildStep(onlyIf = IsLocalDevelopment.class)
+    CardPageBuildItem createDevUICard(JsonRPCConfig jsonRPCConfig, JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
+        CardPageBuildItem card = new CardPageBuildItem();
+
+        // Build-time data: registered methods table
+        List<Map<String, Object>> methodsList = new ArrayList<>();
+        for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> entry : jsonRPCMethodsBuildItem.getMethodsMap().entrySet()) {
+            Map<String, Object> methodData = new LinkedHashMap<>();
+            JsonRPCMethodName methodName = entry.getKey();
+            JsonRPCMethod method = entry.getValue();
+
+            methodData.put("key", methodName.getName());
+            methodData.put("className", method.getClazz().getSimpleName());
+            methodData.put("methodName", method.getMethodName());
+
+            if (method.hasParams()) {
+                List<String> params = new ArrayList<>();
+                for (Map.Entry<String, Class> p : method.getParams().entrySet()) {
+                    params.add(p.getKey() + ": " + p.getValue().getSimpleName());
+                }
+                methodData.put("parameters", String.join(", ", params));
+            } else {
+                methodData.put("parameters", "");
+            }
+
+            String execMode = "blocking (default)";
+            if (method.getExplicitlyBlocking()) {
+                execMode = "blocking";
+            } else if (method.getExplicitlyNonBlocking()) {
+                execMode = "non-blocking";
+            } else if (isReactiveReturnType(method.getClazz(), method.getMethodName())) {
+                execMode = "non-blocking (default)";
+            }
+            methodData.put("executionMode", execMode);
+
+            methodsList.add(methodData);
+        }
+        card.addBuildTimeData("methods", methodsList,
+                "All registered JSON-RPC methods with their signatures and execution modes", true);
+        card.addBuildTimeData("endpointPath", jsonRPCConfig.webSocket().path(),
+                "The WebSocket endpoint path for JSON-RPC connections", true);
+
+        // Methods table page
+        card.addPage(Page.tableDataPageBuilder("Methods")
+                .icon("font-awesome-solid:list")
+                .showColumn("key")
+                .showColumn("className")
+                .showColumn("methodName")
+                .showColumn("parameters")
+                .showColumn("executionMode")
+                .buildTimeDataKey("methods"));
+
+        // Interactive tester page
+        card.addPage(Page.webComponentPageBuilder()
+                .title("Tester")
+                .icon("font-awesome-solid:play")
+                .componentLink("qwc-json-rpc-tester.js"));
+
+        // Active sessions page
+        card.addPage(Page.webComponentPageBuilder()
+                .title("Sessions")
+                .icon("font-awesome-solid:plug")
+                .componentLink("qwc-json-rpc-sessions.js"));
+
+        return card;
+    }
+
+    @BuildStep(onlyIf = IsLocalDevelopment.class)
+    JsonRPCProvidersBuildItem createDevUIJsonRPCService() {
+        return new JsonRPCProvidersBuildItem(JsonRPCDevUIService.class);
+    }
+
+    @BuildStep(onlyIf = IsLocalDevelopment.class)
+    BuildTimeActionBuildItem createDevUIBuildTimeActions(JsonRPCConfig jsonRPCConfig) {
+        BuildTimeActionBuildItem actions = new BuildTimeActionBuildItem();
+        String path = jsonRPCConfig.webSocket().path();
+        actions.actionBuilder()
+                .methodName("getEndpointPath")
+                .description("Get the configured WebSocket endpoint path for JSON-RPC connections")
+                .function(params -> path)
+                .enableMcpFuctionByDefault()
+                .build();
+        return actions;
+    }
+
+    private static final Set<String> REACTIVE_TYPES = Set.of(
+            "io.smallrye.mutiny.Uni",
+            "io.smallrye.mutiny.Multi",
+            "java.util.concurrent.CompletionStage",
+            "java.util.concurrent.Flow$Publisher");
+
+    private boolean isReactiveReturnType(Class<?> clazz, String methodName) {
+        try {
+            java.lang.reflect.Method m = null;
+            for (java.lang.reflect.Method candidate : clazz.getMethods()) {
+                if (candidate.getName().equals(methodName)) {
+                    m = candidate;
+                    break;
+                }
+            }
+            if (m != null) {
+                Class<?> returnType = m.getReturnType();
+                for (String reactiveType : REACTIVE_TYPES) {
+                    try {
+                        if (tccl.loadClass(reactiveType).isAssignableFrom(returnType)) {
+                            return true;
+                        }
+                    } catch (ClassNotFoundException ignored) {
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 
     private Set<String> getEffectiveTypes(Type type) {

@@ -1,11 +1,14 @@
 ---
 artifact: ${project.groupId}:${project.artifactId}:${project.version}
-name: Json Rpc
-description: Do something useful.
+name: JSON-RPC
+description: Expose CDI bean methods as JSON-RPC 2.0 endpoints over WebSocket using the @JsonRPCApi annotation.
 metadata:
   keywords:
     - json-rpc
+    - jsonrpc
+    - websocket
+    - rpc
   guide: https://quarkiverse.github.io/quarkiverse-docs/json-rpc/dev/
   categories:
-    - "miscellaneous"
+    - "web"
   status: "preview"
