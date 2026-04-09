@@ -2,6 +2,8 @@ package io.quarkiverse.jsonrpc.runtime;
 
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
 
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -28,8 +30,19 @@ public class ReflectionInfo {
     }
 
     public boolean isReturningMulti() {
-        Class<?> returnType = this.method.getReturnType();
-        return returnType.getName().equals(Multi.class.getName());
+        return Multi.class.isAssignableFrom(method.getReturnType());
+    }
+
+    public boolean isReturningUni() {
+        return Uni.class.isAssignableFrom(method.getReturnType());
+    }
+
+    public boolean isReturningCompletionStage() {
+        return CompletionStage.class.isAssignableFrom(method.getReturnType());
+    }
+
+    public boolean isReturningFlowPublisher() {
+        return Flow.Publisher.class.isAssignableFrom(method.getReturnType());
     }
 
     public boolean isExplicitlyBlocking() {
@@ -38,9 +51,5 @@ public class ReflectionInfo {
 
     public boolean isExplicitlyNonBlocking() {
         return nonBlocking;
-    }
-
-    public boolean isReturningUni() {
-        return method.getReturnType().getName().equals(Uni.class.getName());
     }
 }
