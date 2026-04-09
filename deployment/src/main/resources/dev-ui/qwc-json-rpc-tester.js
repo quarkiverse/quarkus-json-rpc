@@ -21,14 +21,8 @@ export class QwcJsonRpcTester extends LitElement {
             gap: 0.5em;
         }
         .form-row label {
-            min-width: 120px;
+            flex: 0 0 120px;
             font-weight: bold;
-        }
-        .param-inputs {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5em;
-            margin-left: 120px;
         }
         .result-area {
             background: var(--lumo-contrast-5pct);
@@ -105,6 +99,15 @@ export class QwcJsonRpcTester extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
+        const preselected = sessionStorage.getItem('jsonrpc-test-method');
+        if (preselected) {
+            sessionStorage.removeItem('jsonrpc-test-method');
+            const found = methods.find(m => m.key === preselected);
+            if (found) {
+                this._selectedMethod = found;
+                return;
+            }
+        }
         if (methods && methods.length > 0) {
             this._selectedMethod = methods[0];
         }
@@ -130,22 +133,20 @@ export class QwcJsonRpcTester extends LitElement {
                 </select>
             </div>
 
-            ${this._selectedMethod?.parameters?.length > 0 ? html`
-                <div class="param-inputs">
-                    ${this._selectedMethod.parameters.split(', ').map(p => {
-                        const [name] = p.split(':').map(s => s.trim());
-                        return html`
-                            <div class="form-row">
-                                <label>${name} <small>(${p.split(':')[1]?.trim() || ''})</small>:</label>
-                                <input type="text"
-                                    .value=${this._paramValues[name] || ''}
-                                    @input=${e => this._onParamInput(name, e.target.value)}
-                                    placeholder="${name}">
-                            </div>
-                        `;
-                    })}
-                </div>
-            ` : ''}
+            ${this._selectedMethod?.parameters?.length > 0 ?
+                this._selectedMethod.parameters.split(', ').map(p => {
+                    const [name] = p.split(':').map(s => s.trim());
+                    return html`
+                        <div class="form-row">
+                            <label>${name} <small>(${p.split(':')[1]?.trim() || ''})</small>:</label>
+                            <input type="text"
+                                .value=${this._paramValues[name] || ''}
+                                @input=${e => this._onParamInput(name, e.target.value)}
+                                placeholder="${name}">
+                        </div>
+                    `;
+                })
+            : ''}
 
             <div class="form-row">
                 <button @click=${this._invoke}>Invoke</button>
@@ -221,7 +222,9 @@ export class QwcJsonRpcTester extends LitElement {
         const wsUrl = `${wsProtocol}//${loc.host}${endpointPath}`;
 
         const ws = new WebSocket(wsUrl);
-        const method = this._selectedMethod.key;
+        // Strip params suffix from the key — the server appends param names
+        // from the request's named params to build the lookup key
+        const method = this._selectedMethod.key.replace(/\(.*\)$/, '');
         const requestId = ++QwcJsonRpcTester._nextRequestId;
 
         ws.onopen = () => {

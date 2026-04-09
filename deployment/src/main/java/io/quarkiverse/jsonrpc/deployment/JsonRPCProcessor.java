@@ -281,14 +281,10 @@ public class JsonRPCProcessor {
                 "The WebSocket endpoint path for JSON-RPC connections", true);
 
         // Methods table page
-        card.addPage(Page.tableDataPageBuilder("Methods")
+        card.addPage(Page.webComponentPageBuilder()
+                .title("Methods")
                 .icon("font-awesome-solid:list")
-                .showColumn("key")
-                .showColumn("className")
-                .showColumn("methodName")
-                .showColumn("parameters")
-                .showColumn("executionMode")
-                .buildTimeDataKey("methods"));
+                .componentLink("qwc-json-rpc-methods.js"));
 
         // Interactive tester page
         card.addPage(Page.webComponentPageBuilder()
