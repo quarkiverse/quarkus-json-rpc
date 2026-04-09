@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -114,6 +115,32 @@ public class JsonRPCRequest {
         }
         Object o = params[pos - 1];
         return (T) bindParam(o, paramType);
+    }
+
+    public Object getNamedParam(String key, java.lang.reflect.Type genericType) {
+        JsonNode paramsNode = jsonNode.get(PARAMS);
+        if (paramsNode == null || !paramsNode.has(key)) {
+            return null;
+        }
+        JavaType javaType = objectMapper.getTypeFactory().constructType(genericType);
+        try {
+            return objectMapper.treeToValue(paramsNode.get(key), javaType);
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    public Object getPositionedParam(int pos, java.lang.reflect.Type genericType) {
+        JsonNode paramsNode = jsonNode.get(PARAMS);
+        if (paramsNode == null || !paramsNode.isArray() || paramsNode.size() < pos) {
+            return null;
+        }
+        JavaType javaType = objectMapper.getTypeFactory().constructType(genericType);
+        try {
+            return objectMapper.treeToValue(paramsNode.get(pos - 1), javaType);
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     public Set<String> getNamedParamKeys() {

@@ -95,9 +95,17 @@ public class JsonRpcParent {
                 if (responseType.equals(String.class)) {
                     String result = jsonResponse.getString("result");
                     return (T) result;
-                    // TODO: Add other primative types
                 } else if (responseType.equals(JsonObject.class)) {
                     JsonObject result = jsonResponse.getJsonObject("result");
+                    return (T) result;
+                } else if (responseType.equals(JsonArray.class)) {
+                    JsonArray result = jsonResponse.getJsonArray("result");
+                    return (T) result;
+                } else if (responseType.equals(Integer.class)) {
+                    Integer result = jsonResponse.getInteger("result");
+                    return (T) result;
+                } else if (responseType.equals(Boolean.class)) {
+                    Boolean result = jsonResponse.getBoolean("result");
                     return (T) result;
                 } else {
                     throw new RuntimeException("Unsupported type " + responseType);

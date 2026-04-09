@@ -203,7 +203,7 @@ public class JsonRPCRouter {
                 try {
                     Object result;
                     if (jsonRpcRequest.hasParams()) {
-                        Object[] args = getArgsAsObjects(reflectionInfo.params, jsonRpcRequest);
+                        Object[] args = getArgsAsObjects(reflectionInfo, jsonRpcRequest);
                         result = reflectionInfo.method.invoke(target, args);
                     } else {
                         result = reflectionInfo.method.invoke(target);
@@ -252,7 +252,7 @@ public class JsonRPCRouter {
                 Uni<?> uni;
                 try {
                     if (jsonRpcRequest.hasParams()) {
-                        Object[] args = getArgsAsObjects(reflectionInfo.params, jsonRpcRequest);
+                        Object[] args = getArgsAsObjects(reflectionInfo, jsonRpcRequest);
                         uni = invoke(reflectionInfo, target, args);
                     } else {
                         uni = invoke(reflectionInfo, target, new Object[0]);
@@ -318,19 +318,34 @@ public class JsonRPCRouter {
         return current;
     }
 
-    private Object[] getArgsAsObjects(Map<String, Class> params, JsonRPCRequest jsonRpcRequest) {
+    private Object[] getArgsAsObjects(ReflectionInfo reflectionInfo, JsonRPCRequest jsonRpcRequest) {
+        Map<String, Class> params = reflectionInfo.params;
+        // Use the original bean class (not the CDI proxy) to get generic parameter types,
+        // because CDI proxies do not preserve generic type information
+        java.lang.reflect.Type[] genericTypes;
+        try {
+            Method beanMethod = reflectionInfo.bean.getMethod(
+                    reflectionInfo.method.getName(),
+                    reflectionInfo.method.getParameterTypes());
+            genericTypes = beanMethod.getGenericParameterTypes();
+        } catch (NoSuchMethodException e) {
+            genericTypes = reflectionInfo.method.getGenericParameterTypes();
+        }
+
         List<Object> objects = new ArrayList<>();
         int cnt = 0;
+        int idx = 0;
         for (Map.Entry<String, Class> expectedParams : params.entrySet()) {
             String paramName = expectedParams.getKey();
-            Class paramType = expectedParams.getValue();
+            java.lang.reflect.Type genericType = genericTypes[idx];
             if (jsonRpcRequest.hasNamedParams()) {
-                Object param = jsonRpcRequest.getNamedParam(paramName, paramType);
+                Object param = jsonRpcRequest.getNamedParam(paramName, genericType);
                 objects.add(param);
             } else if (jsonRpcRequest.hasPositionedParams()) {
-                Object param = jsonRpcRequest.getPositionedParam(++cnt, paramType);
+                Object param = jsonRpcRequest.getPositionedParam(++cnt, genericType);
                 objects.add(param);
             }
+            idx++;
         }
         return objects.toArray(Object[]::new);
     }

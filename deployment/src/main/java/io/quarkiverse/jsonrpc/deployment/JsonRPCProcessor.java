@@ -114,6 +114,7 @@ public class JsonRPCProcessor {
                                     Class parameterClass = toClass(parameterType);
                                     String parameterName = method.parameterName(i);
                                     params.put(parameterName, parameterClass);
+                                    nativeClasses.addAll(getEffectiveTypes(parameterType));
                                 }
                                 fullName = Keys.createKey(scope, method.name(), params.keySet());
 
@@ -124,10 +125,6 @@ public class JsonRPCProcessor {
                                 jsonRpcMethod
                                         .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
-
-                                for (Class paramClass : params.values()) {
-                                    nativeClasses.add(paramClass.getName());
-                                }
                             } else {
                                 fullName = Keys.createKey(scope, method.name());
                                 JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
@@ -139,10 +136,7 @@ public class JsonRPCProcessor {
                             }
 
                             // Add the return type
-                            String returnType = getEffectiveReturnType(method.returnType());
-                            if (returnType != null) {
-                                nativeClasses.add(returnType);
-                            }
+                            nativeClasses.addAll(getEffectiveTypes(method.returnType()));
 
                         }
                     }
@@ -235,34 +229,31 @@ public class JsonRPCProcessor {
         }
     }
 
-    private String getEffectiveReturnType(Type type) {
-        // Add the return type
+    private Set<String> getEffectiveTypes(Type type) {
+        Set<String> types = new HashSet<>();
         switch (type.kind()) {
             case CLASS:
-                return type.asClassType().name().toString();
+                types.add(type.asClassType().name().toString());
+                break;
             case ARRAY:
-                return getEffectiveReturnType(type.asArrayType().componentType());
+                types.addAll(getEffectiveTypes(type.asArrayType().componentType()));
+                break;
             case PARAMETERIZED_TYPE:
-                return getEffectiveReturnType(type.asParameterizedType().arguments().get(0));
+                for (Type arg : type.asParameterizedType().arguments()) {
+                    types.addAll(getEffectiveTypes(arg));
+                }
+                break;
             default:
                 break;
         }
-        return null;
+        return types;
     }
 
     private Class toClass(Type type) {
-        if (type.kind().equals(Type.Kind.PRIMITIVE)) {
-            return JandexReflection.loadRawType(type);
-        } else if (type.kind().equals(Type.Kind.VOID)) {
-            // TODO: Handle this.
+        if (type.kind().equals(Type.Kind.VOID)) {
             throw new RuntimeException("Void method return detected, JsonRPC Method needs to return something.");
-        } else {
-            try {
-                return tccl.loadClass(type.name().toString());
-            } catch (ClassNotFoundException ex) {
-                throw new RuntimeException(ex);
-            }
         }
+        return JandexReflection.loadRawType(type);
     }
 
 }
