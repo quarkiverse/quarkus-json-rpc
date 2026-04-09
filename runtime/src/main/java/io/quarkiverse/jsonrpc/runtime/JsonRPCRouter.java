@@ -157,6 +157,14 @@ public class JsonRPCRouter {
         }
     }
 
+    public Map<String, ReflectionInfo> getRegisteredMethods() {
+        return jsonRpcToJava;
+    }
+
+    public Map<ServerWebSocket, Map<String, Cancellable>> getSocketSubscriptions() {
+        return socketSubscriptions;
+    }
+
     public void addSocket(ServerWebSocket socket) {
         sessions.addSession(socket);
         socket.textMessageHandler((e) -> {
