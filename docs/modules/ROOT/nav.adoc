@@ -6,6 +6,7 @@
 ** xref:guides-parameters.adoc[Parameters]
 ** xref:guides-streaming.adoc[Streaming with Multi]
 ** xref:guides-broadcasting.adoc[Broadcasting]
+** xref:guides-javascript-client.adoc[JavaScript Client]
 
 .Reference
 ** xref:reference-configuration.adoc[Configuration]

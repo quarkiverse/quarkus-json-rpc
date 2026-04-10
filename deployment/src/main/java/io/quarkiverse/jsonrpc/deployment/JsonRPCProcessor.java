@@ -1,6 +1,10 @@
 package io.quarkiverse.jsonrpc.deployment;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Modifier;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -9,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -46,6 +51,7 @@ import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
+import io.quarkus.deployment.builditem.GeneratedResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
 import io.quarkus.devui.spi.buildtime.BuildTimeActionBuildItem;
@@ -53,15 +59,23 @@ import io.quarkus.devui.spi.page.CardPageBuildItem;
 import io.quarkus.devui.spi.page.Page;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
+import io.quarkus.vertx.http.deployment.spi.GeneratedStaticResourceBuildItem;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
 
 public class JsonRPCProcessor {
+    private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(JsonRPCProcessor.class);
     private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCApi");
+    private static final Pattern JS_IDENTIFIER = Pattern.compile("^[a-zA-Z_$][a-zA-Z0-9_$]*$");
+    private static final Set<String> JS_RESERVED_WORDS = Set.of(
+            "break", "case", "catch", "class", "const", "continue", "debugger", "default",
+            "delete", "do", "else", "enum", "export", "extends", "false", "finally", "for",
+            "function", "if", "import", "in", "instanceof", "new", "null", "return", "super",
+            "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with",
+            "yield", "let", "static", "implements", "interface", "package", "private", "protected",
+            "public", "await");
     private static final String FEATURE = "json-rpc";
     private static final String CONSTRUCTOR = "<init>";
-
-    private final ClassLoader tccl = Thread.currentThread().getContextClassLoader();
 
     @BuildStep
     FeatureBuildItem feature() {
@@ -236,6 +250,146 @@ public class JsonRPCProcessor {
         }
     }
 
+    // JavaScript client proxy
+
+    @BuildStep
+    void generateJsClient(
+            JsonRPCConfig jsonRPCConfig,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
+            BuildProducer<GeneratedStaticResourceBuildItem> staticResourceProducer,
+            BuildProducer<GeneratedResourceBuildItem> generatedResourceProducer) {
+
+        if (!jsonRPCConfig.client().enabled()) {
+            return;
+        }
+
+        // 1. Copy the static client library
+        ClassLoader tccl = Thread.currentThread().getContextClassLoader();
+        try (InputStream is = tccl.getResourceAsStream("jsonrpc/jsonrpc-client.js")) {
+            if (is == null) {
+                throw new IllegalStateException("jsonrpc/jsonrpc-client.js not found on classpath");
+            }
+            staticResourceProducer.produce(
+                    new GeneratedStaticResourceBuildItem(
+                            "/_static/quarkus-json-rpc/jsonrpc-client.js",
+                            is.readAllBytes()));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        // 2. Generate the typed proxy module
+        Map<JsonRPCMethodName, JsonRPCMethod> methodsMap = jsonRPCMethodsBuildItem.getMethodsMap();
+        String proxyJs = generateTypedProxy(methodsMap, jsonRPCConfig.webSocket().path());
+        staticResourceProducer.produce(
+                new GeneratedStaticResourceBuildItem(
+                        "/_static/quarkus-json-rpc-api/jsonrpc-api.js",
+                        proxyJs.getBytes(StandardCharsets.UTF_8)));
+
+        // 3. Generate importmap.json for web-dependency-locator
+        String importmap = generateImportMap();
+        generatedResourceProducer.produce(
+                new GeneratedResourceBuildItem(
+                        "META-INF/importmap.json",
+                        importmap.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    private String generateTypedProxy(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, String wsPath) {
+        StringBuilder js = new StringBuilder();
+        js.append("import { JsonRPCClient } from '/_static/quarkus-json-rpc/jsonrpc-client.js';\n\n");
+        js.append("export const client = new JsonRPCClient({ path: '").append(escapeJsString(wsPath)).append("' });\n\n");
+
+        // Group methods by scope and method name (sorted for deterministic output).
+        // Multiple overloads of the same method name share one JS proxy entry — the server
+        // resolves the correct overload based on parameters. We validate that all overloads
+        // agree on streaming vs non-streaming return type.
+        Map<String, Map<String, MethodEntry>> byScope = new java.util.TreeMap<>();
+        for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> entry : methodsMap.entrySet()) {
+            String key = entry.getKey().getName();
+            int hashIdx = key.indexOf('#');
+            String scope = key.substring(0, hashIdx);
+            validateJsIdentifier(scope, "@JsonRPCApi scope");
+            String methodName = entry.getValue().getMethodName();
+            validateJsIdentifier(methodName, "Method name '" + scope + "#" + methodName + "'");
+            Map<String, MethodEntry> scopeMethods = byScope.computeIfAbsent(scope, k -> new java.util.TreeMap<>());
+            MethodEntry existing = scopeMethods.get(methodName);
+            if (existing != null) {
+                // Overloaded method — verify return types agree on streaming vs non-streaming
+                boolean existingStreaming = isStreamingReturnType(existing.method);
+                boolean newStreaming = isStreamingReturnType(entry.getValue());
+                if (existingStreaming != newStreaming) {
+                    throw new IllegalArgumentException(
+                            "Overloaded method '" + scope + "#" + methodName + "' has conflicting return types: "
+                                    + "some overloads return a streaming type (Multi/Flow.Publisher) while others do not. "
+                                    + "The JavaScript client proxy cannot represent both call() and subscribe() "
+                                    + "under the same method name. Rename one of the overloads or make all overloads "
+                                    + "return the same category (all streaming or all non-streaming).");
+                }
+            } else {
+                scopeMethods.put(methodName, new MethodEntry(scope, methodName, entry.getValue()));
+            }
+        }
+
+        for (Map.Entry<String, Map<String, MethodEntry>> scopeEntry : byScope.entrySet()) {
+            String scope = scopeEntry.getKey();
+            Map<String, MethodEntry> methods = scopeEntry.getValue();
+
+            js.append("export const ").append(scope).append(" = {\n");
+            int i = 0;
+            for (MethodEntry me : methods.values()) {
+                boolean streaming = isStreamingReturnType(me.method);
+                String clientMethod = streaming ? "subscribe" : "call";
+                String methodKey = me.scope + "#" + me.methodName;
+                js.append("    ").append(me.methodName)
+                        .append(": (params) => client.").append(clientMethod)
+                        .append("('").append(methodKey).append("', params)");
+                if (i < methods.size() - 1) {
+                    js.append(",");
+                }
+                js.append("\n");
+                i++;
+            }
+            js.append("};\n\n");
+        }
+
+        return js.toString();
+    }
+
+    private String generateImportMap() {
+        return "{\n"
+                + "  \"imports\" : {\n"
+                + "    \"@quarkiverse/json-rpc\" : \"/_static/quarkus-json-rpc/jsonrpc-client.js\",\n"
+                + "    \"@quarkiverse/json-rpc/\" : \"/_static/quarkus-json-rpc/\",\n"
+                + "    \"@quarkiverse/json-rpc-api\" : \"/_static/quarkus-json-rpc-api/jsonrpc-api.js\"\n"
+                + "  }\n"
+                + "}\n";
+    }
+
+    private static final Set<String> STREAMING_TYPES = Set.of(
+            "io.smallrye.mutiny.Multi",
+            "java.util.concurrent.Flow$Publisher");
+
+    private boolean isStreamingReturnType(JsonRPCMethod method) {
+        int paramCount = method.hasParams() ? method.getParams().size() : 0;
+        return isReturnTypeAssignableTo(method.getClazz(), method.getMethodName(), paramCount, STREAMING_TYPES);
+    }
+
+    private record MethodEntry(String scope, String methodName, JsonRPCMethod method) {
+    }
+
+    private static String escapeJsString(String value) {
+        return value.replace("\\", "\\\\").replace("'", "\\'");
+    }
+
+    private static void validateJsIdentifier(String name, String label) {
+        if (!JS_IDENTIFIER.matcher(name).matches() || JS_RESERVED_WORDS.contains(name)) {
+            throw new IllegalArgumentException(
+                    label + " '" + name + "' is not a valid JavaScript identifier. "
+                            + "Use a name that starts with a letter, underscore, or dollar sign, "
+                            + "contains only letters, digits, underscores, or dollar signs, "
+                            + "and is not a JavaScript reserved word.");
+        }
+    }
+
     // Dev UI
 
     @BuildStep(onlyIf = IsLocalDevelopment.class)
@@ -319,33 +473,48 @@ public class JsonRPCProcessor {
         return actions;
     }
 
-    private static final Set<String> REACTIVE_TYPES = Set.of(
+    private static final Set<String> NON_STREAMING_REACTIVE_TYPES = Set.of(
             "io.smallrye.mutiny.Uni",
-            "io.smallrye.mutiny.Multi",
-            "java.util.concurrent.CompletionStage",
-            "java.util.concurrent.Flow$Publisher");
+            "java.util.concurrent.CompletionStage");
+
+    private static final Set<String> REACTIVE_TYPES;
+    static {
+        Set<String> all = new HashSet<>(NON_STREAMING_REACTIVE_TYPES);
+        all.addAll(STREAMING_TYPES);
+        REACTIVE_TYPES = Set.copyOf(all);
+    }
 
     private boolean isReactiveReturnType(Class<?> clazz, String methodName) {
+        return isReturnTypeAssignableTo(clazz, methodName, -1, REACTIVE_TYPES);
+    }
+
+    /**
+     * Check whether a method's return type is assignable to any of the given type names.
+     *
+     * @param paramCount number of parameters to match the correct overload, or -1 to match any
+     */
+    private boolean isReturnTypeAssignableTo(Class<?> clazz, String methodName, int paramCount, Set<String> typeNames) {
+        ClassLoader tccl = Thread.currentThread().getContextClassLoader();
         try {
-            java.lang.reflect.Method m = null;
-            for (java.lang.reflect.Method candidate : clazz.getMethods()) {
-                if (candidate.getName().equals(methodName)) {
-                    m = candidate;
-                    break;
-                }
-            }
-            if (m != null) {
-                Class<?> returnType = m.getReturnType();
-                for (String reactiveType : REACTIVE_TYPES) {
-                    try {
-                        if (tccl.loadClass(reactiveType).isAssignableFrom(returnType)) {
-                            return true;
+            for (java.lang.reflect.Method m : clazz.getMethods()) {
+                if (m.getName().equals(methodName)
+                        && (paramCount < 0 || m.getParameterCount() == paramCount)) {
+                    Class<?> returnType = m.getReturnType();
+                    for (String typeName : typeNames) {
+                        try {
+                            if (tccl.loadClass(typeName).isAssignableFrom(returnType)) {
+                                return true;
+                            }
+                        } catch (ClassNotFoundException ignored) {
                         }
-                    } catch (ClassNotFoundException ignored) {
+                    }
+                    if (paramCount >= 0) {
+                        break;
                     }
                 }
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            LOG.debugf(e, "Failed to inspect return type of %s.%s", clazz.getName(), methodName);
         }
         return false;
     }

@@ -4,11 +4,9 @@ class JsonRpcApp extends LitElement {
 
     static properties = {
         _connected: {state: true},
-        _method: {state: true},
-        _params: {state: true},
         _messages: {state: true},
-        _nextId: {state: true},
         _subscriptions: {state: true},
+        _ready: {state: true},
     };
 
     static styles = css`
@@ -73,23 +71,6 @@ class JsonRpcApp extends LitElement {
             color: #555;
         }
 
-        select, input, textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 0.9rem;
-            box-sizing: border-box;
-            margin-bottom: 12px;
-        }
-
-        textarea {
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 0.8rem;
-            resize: vertical;
-        }
-
         .quick-methods {
             display: flex;
             flex-wrap: wrap;
@@ -114,6 +95,7 @@ class JsonRpcApp extends LitElement {
         .actions {
             display: flex;
             gap: 8px;
+            margin-top: 12px;
         }
 
         .actions button {
@@ -123,20 +105,6 @@ class JsonRpcApp extends LitElement {
             font-size: 0.9rem;
             font-weight: 500;
             cursor: pointer;
-        }
-
-        .btn-send {
-            background: #1976d2;
-            color: white;
-        }
-
-        .btn-send:hover {
-            background: #1565c0;
-        }
-
-        .btn-send:disabled {
-            background: #bbb;
-            cursor: not-allowed;
         }
 
         .btn-clear {
@@ -238,51 +206,26 @@ class JsonRpcApp extends LitElement {
 
     constructor() {
         super();
-        this._ws = null;
         this._connected = false;
-        this._method = 'HelloResource#hello';
-        this._params = '';
         this._messages = [];
-        this._nextId = 1;
         this._subscriptions = new Map();
+        this._ready = false;
+        this._rpc = null;
     }
 
-    connectedCallback() {
+    async connectedCallback() {
         super.connectedCallback();
-        this._connect();
-    }
-
-    disconnectedCallback() {
-        super.disconnectedCallback();
-        if (this._ws) this._ws.close();
-    }
-
-    _connect() {
-        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const ws = new WebSocket(`${protocol}//${location.host}/quarkus/json-rpc`);
-
-        ws.onopen = () => {
-            this._connected = true;
-            this._ws = ws;
-        };
-
-        ws.onclose = () => {
+        // Load the generated JSON-RPC proxy at runtime (dynamic path prevents esbuild resolution)
+        const apiPath = ['/_static/quarkus-json-rpc-api', 'jsonrpc-api.js'].join('/');
+        const rpc = await import(apiPath);
+        this._rpc = rpc;
+        rpc.client.onOpen = () => { this._connected = true; };
+        rpc.client.onClose = () => {
             this._connected = false;
-            this._ws = null;
             this._subscriptions = new Map();
-            setTimeout(() => this._connect(), 2000);
         };
-
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.method === 'subscription') {
-                this._addMessage('notification', data);
-            } else if (data.error && data.error.message) {
-                this._addMessage('error', data);
-            } else {
-                this._addMessage('received', data);
-            }
-        };
+        this._connected = rpc.client.connected;
+        this._ready = true;
     }
 
     _addMessage(type, data) {
@@ -294,51 +237,43 @@ class JsonRpcApp extends LitElement {
         });
     }
 
-    _send() {
-        if (!this._ws) return;
-
-        const id = this._nextId++;
-        const req = {jsonrpc: '2.0', method: this._method, id};
-
-        const paramsText = this._params.trim();
-        if (paramsText) {
-            try {
-                req.params = JSON.parse(paramsText);
-            } catch {
-                this._addMessage('error', {error: {message: 'Invalid JSON in params field'}});
-                return;
-            }
+    async _call(label, fn) {
+        this._addMessage('sent', {call: label});
+        try {
+            const result = await fn();
+            this._addMessage('received', {result});
+        } catch (err) {
+            this._addMessage('error', {error: err});
         }
-
-        this._addMessage('sent', req);
-        this._ws.send(JSON.stringify(req));
-
-        // Track subscription acks
-        const handler = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.id === id && data.result && typeof data.result === 'string'
-                && data.result.match(/^[0-9a-f]{8}-/)) {
-                this._subscriptions = new Map([...this._subscriptions, [data.result, this._method]]);
-                this._ws.removeEventListener('message', handler);
-            }
-        };
-        this._ws.addEventListener('message', handler);
     }
 
-    _unsubscribe(subscriptionId) {
-        if (!this._ws) return;
-        const id = this._nextId++;
-        const req = {jsonrpc: '2.0', method: 'unsubscribe', params: {subscription: subscriptionId}, id};
-        this._addMessage('sent', req);
-        this._ws.send(JSON.stringify(req));
+    _subscribe(label, fn) {
+        this._addMessage('sent', {subscribe: label});
+        const sub = fn()
+            .onItem(item => this._addMessage('notification', {subscription: label, item}))
+            .onError(err => {
+                this._addMessage('error', {subscription: label, error: err});
+                this._removeSubscription(label);
+            })
+            .onComplete(() => {
+                this._addMessage('notification', {subscription: label, complete: true});
+                this._removeSubscription(label);
+            });
+        this._subscriptions = new Map([...this._subscriptions, [label, sub]]);
+    }
+
+    _removeSubscription(label) {
         const subs = new Map(this._subscriptions);
-        subs.delete(subscriptionId);
+        subs.delete(label);
         this._subscriptions = subs;
     }
 
-    _selectMethod(method, params) {
-        this._method = method;
-        this._params = params || '';
+    async _unsubscribe(label) {
+        const sub = this._subscriptions.get(label);
+        if (sub) {
+            await sub.cancel();
+            this._removeSubscription(label);
+        }
     }
 
     _clearMessages() {
@@ -356,7 +291,6 @@ class JsonRpcApp extends LitElement {
         while (i < str.length) {
             const ch = str[i];
             if (ch === '"') {
-                // Find end of string
                 let j = i + 1;
                 while (j < str.length) {
                     if (str[j] === '\\') { j += 2; continue; }
@@ -364,7 +298,6 @@ class JsonRpcApp extends LitElement {
                     j++;
                 }
                 const s = str.slice(i, j);
-                // Check if this is a key (followed by colon)
                 let k = j;
                 while (k < str.length && str[k] === ' ') k++;
                 if (str[k] === ':') {
@@ -397,22 +330,31 @@ class JsonRpcApp extends LitElement {
     }
 
     render() {
-        const quickMethods = [
-            ['HelloResource#hello', ''],
-            ['HelloResource#hello', '{"name": "World"}'],
-            ['HelloResource#hello', '{"name": "John", "surname": "Doe"}'],
-            ['HelloResource#helloNonBlocking', '{"name": "World"}'],
-            ['HelloResource#helloUni', '{"name": "Async"}'],
-            ['HelloResource#helloUniBlocking', '{"name": "Blocking"}'],
-            ['HelloResource#helloMulti', '{"name": "Stream"}'],
-            ['HelloResource#helloMulti', ''],
-            ['PojoResource#pojo', ''],
-            ['PojoResource#pojo', '{"name": "John", "surname": "Doe"}'],
-            ['PojoResource#pojoUni', ''],
-            ['PojoResource#pojoMulti', ''],
-            ['scoped#hello', ''],
-            ['scoped#hello', '{"name": "World"}'],
-            ['scoped#pojo', ''],
+        if (!this._ready) {
+            return html`<h1>Loading...</h1>`;
+        }
+
+        const {HelloResource, PojoResource, scoped} = this._rpc;
+
+        const calls = [
+            ['HelloResource.hello()', () => HelloResource.hello()],
+            ['HelloResource.hello({name})', () => HelloResource.hello({name: 'World'})],
+            ['HelloResource.hello({name, surname})', () => HelloResource.hello({name: 'John', surname: 'Doe'})],
+            ['HelloResource.helloNonBlocking({name})', () => HelloResource.helloNonBlocking({name: 'World'})],
+            ['HelloResource.helloUni({name})', () => HelloResource.helloUni({name: 'Async'})],
+            ['HelloResource.helloUniBlocking({name})', () => HelloResource.helloUniBlocking({name: 'Blocking'})],
+            ['PojoResource.pojo()', () => PojoResource.pojo()],
+            ['PojoResource.pojo({name, surname})', () => PojoResource.pojo({name: 'John', surname: 'Doe'})],
+            ['PojoResource.pojoUni()', () => PojoResource.pojoUni()],
+            ['scoped.hello()', () => scoped.hello()],
+            ['scoped.hello({name})', () => scoped.hello({name: 'World'})],
+            ['scoped.pojo()', () => scoped.pojo()],
+        ];
+
+        const streams = [
+            ['HelloResource.helloMulti()', () => HelloResource.helloMulti()],
+            ['HelloResource.helloMulti({name})', () => HelloResource.helloMulti({name: 'Stream'})],
+            ['PojoResource.pojoMulti()', () => PojoResource.pojoMulti()],
         ];
 
         return html`
@@ -424,41 +366,39 @@ class JsonRpcApp extends LitElement {
 
             <div class="layout">
                 <div class="panel">
-                    <h2>Request</h2>
-
-                    <label>Quick methods</label>
+                    <h2>RPC Calls</h2>
+                    <label>Click a method to invoke it</label>
                     <div class="quick-methods">
-                        ${quickMethods.map(([m, p]) => {
-                            const label = p ? `${m}(${Object.keys(JSON.parse(p)).join(', ')})` : `${m}()`;
-                            return html`<button @click=${() => this._selectMethod(m, p)}>${label}</button>`;
-                        })}
+                        ${calls.map(([label, fn]) =>
+                            html`<button ?disabled=${!this._connected}
+                                         @click=${() => this._call(label, fn)}>${label}</button>`
+                        )}
                     </div>
 
-                    <label>Method</label>
-                    <input type="text" .value=${this._method}
-                        @input=${e => this._method = e.target.value}>
-
-                    <label>Params (JSON)</label>
-                    <textarea rows="3" .value=${this._params}
-                        @input=${e => this._params = e.target.value}
-                        placeholder='{"name": "value"} or ["value1", "value2"]'></textarea>
-
-                    <div class="actions">
-                        <button class="btn-send" ?disabled=${!this._connected} @click=${this._send}>Send</button>
-                        <button class="btn-clear" @click=${this._clearMessages}>Clear</button>
+                    <h2>Streaming</h2>
+                    <label>Subscribe to a Multi stream</label>
+                    <div class="quick-methods">
+                        ${streams.map(([label, fn]) =>
+                            html`<button ?disabled=${!this._connected}
+                                         @click=${() => this._subscribe(label, fn)}>${label}</button>`
+                        )}
                     </div>
 
                     ${this._subscriptions.size > 0 ? html`
                         <div class="subscriptions">
                             <label>Active subscriptions</label>
-                            ${[...this._subscriptions.entries()].map(([id, method]) => html`
+                            ${[...this._subscriptions.keys()].map(label => html`
                                 <div class="sub-item">
-                                    <span>${method} (${id.substring(0, 8)}...)</span>
-                                    <button @click=${() => this._unsubscribe(id)}>Unsubscribe</button>
+                                    <span>${label}</span>
+                                    <button @click=${() => this._unsubscribe(label)}>Unsubscribe</button>
                                 </div>
                             `)}
                         </div>
                     ` : ''}
+
+                    <div class="actions">
+                        <button class="btn-clear" @click=${this._clearMessages}>Clear Messages</button>
+                    </div>
                 </div>
 
                 <div class="panel">

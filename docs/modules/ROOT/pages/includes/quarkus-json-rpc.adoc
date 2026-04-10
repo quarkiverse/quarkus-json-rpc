@@ -40,7 +40,24 @@ endif::add-copy-button-to-env-var[]
 ifndef::add-copy-button-to-env-var[]
 Environment variable: `+++QUARKUS_JSON_RPC_WEB_SOCKET_PATH+++`
 endif::add-copy-button-to-env-var[]
---|string 
+--|string
 |`/quarkus/json-rpc`
+
+
+a|icon:lock[title=Fixed at build time] [[quarkus-json-rpc_quarkus-json-rpc-client-enabled]]`link:#quarkus-json-rpc_quarkus-json-rpc-client-enabled[quarkus.json-rpc.client.enabled]`
+
+
+[.description]
+--
+Generate a JavaScript client proxy for all discovered JSON-RPC endpoints. When enabled, a static client library and a typed proxy module are generated as web resources, along with an import map following the mvnpm convention.
+
+ifdef::add-copy-button-to-env-var[]
+Environment variable: env_var_with_copy_button:+++QUARKUS_JSON_RPC_CLIENT_ENABLED+++[]
+endif::add-copy-button-to-env-var[]
+ifndef::add-copy-button-to-env-var[]
+Environment variable: `+++QUARKUS_JSON_RPC_CLIENT_ENABLED+++`
+endif::add-copy-button-to-env-var[]
+--|boolean
+|`false`
 
 |===
