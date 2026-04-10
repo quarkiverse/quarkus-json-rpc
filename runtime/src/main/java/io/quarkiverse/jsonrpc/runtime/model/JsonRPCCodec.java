@@ -40,7 +40,18 @@ public class JsonRPCCodec {
     }
 
     public void writeErrorResponse(ServerWebSocket socket, int id, String jsonRpcMethodName, Throwable exception) {
-        writeErrorResponse(socket, id, JsonRPCKeys.INTERNAL_ERROR, jsonRpcMethodName, exception);
+        int code = resolveErrorCode(exception);
+        writeErrorResponse(socket, id, code, jsonRpcMethodName, exception);
+    }
+
+    private int resolveErrorCode(Throwable exception) {
+        if (exception instanceof io.quarkus.security.UnauthorizedException) {
+            return JsonRPCKeys.UNAUTHORIZED;
+        }
+        if (exception instanceof io.quarkus.security.ForbiddenException) {
+            return JsonRPCKeys.FORBIDDEN;
+        }
+        return JsonRPCKeys.INTERNAL_ERROR;
     }
 
     public void writeErrorResponse(ServerWebSocket socket, int id, int code, String jsonRpcMethodName,

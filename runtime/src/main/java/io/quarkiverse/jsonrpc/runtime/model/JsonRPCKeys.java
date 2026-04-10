@@ -21,4 +21,8 @@ public interface JsonRPCKeys {
     public static final int METHOD_NOT_FOUND = -32601; // Method not found. The method does not exist / is not available.
     public static final int INVALID_PARAMS = -32602; // Invalid params.	Invalid method parameter(s).
     public static final int INTERNAL_ERROR = -32603; //	Internal error. Internal JSON-RPC error.
+
+    // Server-defined errors (JSON-RPC 2.0 reserved range: -32000 to -32099)
+    public static final int UNAUTHORIZED = -32000; // Unauthorized. Authentication is required but was not provided or is invalid.
+    public static final int FORBIDDEN = -32001; // Forbidden. Authenticated but not authorized for the requested method.
 }
