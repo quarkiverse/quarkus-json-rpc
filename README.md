@@ -57,6 +57,7 @@ Connect to `ws://localhost:8080/quarkus/json-rpc` and send:
 - **Server push** — broadcast notifications to all clients or target specific sessions
 - **Named & positional parameters** — both JSON object and array parameter styles
 - **POJO support** — automatic Jackson serialization for complex types
+- **JavaScript client** — optional generated typed proxy for calling endpoints from the browser
 - **Native image** — full GraalVM native compilation support
 - **Dev UI** — interactive method tester and endpoint browser
 

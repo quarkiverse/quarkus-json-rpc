@@ -73,6 +73,9 @@ Call methods with named parameters (JSON object) or positional parameters (JSON 
 POJO support::
 Complex types are serialized and deserialized automatically via Jackson, including nested objects, collections, and Java time types.
 
+JavaScript client::
+Optionally generate a typed JavaScript proxy for all your endpoints, ready to import from Quarkus Web Bundler or any ES module environment.
+
 Dev UI::
 An interactive method browser and tester is available in the Quarkus Dev UI during development.
 
@@ -96,6 +99,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 
 | xref:guides-broadcasting.adoc[Broadcasting]
 | Push notifications to clients from any CDI bean.
+
+| xref:guides-javascript-client.adoc[JavaScript Client]
+| Generate a typed JavaScript proxy for calling your endpoints from the browser.
 
 | xref:reference-configuration.adoc[Configuration Reference]
 | All available configuration properties.

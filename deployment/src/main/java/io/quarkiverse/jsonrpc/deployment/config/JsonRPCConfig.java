@@ -17,4 +17,9 @@ public interface JsonRPCConfig {
      */
     @WithName("web-socket")
     JsonRPCWebSocketConfig webSocket();
+
+    /**
+     * Configuration properties for the JavaScript client proxy generation
+     */
+    JsonRPCClientConfig client();
 }

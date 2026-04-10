@@ -1,0 +1,208 @@
+= JavaScript Client
+
+include::./includes/attributes.adoc[]
+
+When `quarkus.json-rpc.client.enabled` is set to `true`, the extension generates a JavaScript client library and a typed proxy module as web resources. These can be imported directly from frameworks like https://docs.quarkiverse.io/quarkus-web-bundler/dev/index.html[Quarkus Web Bundler] or https://quarkus.io/guides/web-dependency-locator[Web Dependency Locator] via the standard https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap[import map] convention.
+
+== Enabling the Client
+
+Add to `application.properties`:
+
+[source,properties]
+----
+quarkus.json-rpc.client.enabled=true
+----
+
+This generates three resources at build time:
+
+[cols="1,2"]
+|===
+| Resource | Purpose
+
+| `_static/quarkus-json-rpc/jsonrpc-client.js`
+| Reusable WebSocket client library
+
+| `_static/quarkus-json-rpc-api/jsonrpc-api.js`
+| Typed proxy with exports for each `@JsonRPCApi` scope
+
+| `META-INF/importmap.json`
+| Import map for module resolution
+|===
+
+== Using the Typed Proxy
+
+The generated proxy is the easiest way to call your JSON-RPC methods. It exports one object per `@JsonRPCApi` scope, plus the underlying `client` instance:
+
+[source,javascript]
+----
+import { client, GreetingService } from '@quarkiverse/json-rpc-api';
+
+// Simple call
+const greeting = await GreetingService.hello({ name: 'World' });
+console.log(greeting); // "Hello World"
+
+// With multiple parameters
+const full = await GreetingService.greet({ name: 'Jane', surname: 'Doe' });
+----
+
+Each method on the proxy accepts a params object (named parameters) or an array (positional parameters), matching the server-side Java method signature.
+
+=== Streaming Methods
+
+Methods that return `Multi<T>` or `Flow.Publisher<T>` on the server are automatically exposed as subscriptions:
+
+[source,javascript]
+----
+import { TickerService } from '@quarkiverse/json-rpc-api';
+
+const sub = TickerService.ticker()
+    .onItem(item => console.log('Received:', item))
+    .onError(err => console.error('Error:', err))
+    .onComplete(() => console.log('Stream completed'));
+
+// Cancel the subscription later
+await sub.cancel();
+----
+
+=== Configuring the Connection
+
+The typed proxy exports the `client` instance so you can reconfigure the WebSocket URL at runtime -- for example, when behind a reverse proxy or gateway:
+
+[source,javascript]
+----
+import { client, GreetingService } from '@quarkiverse/json-rpc-api';
+
+// Override the full URL
+client.url = 'wss://gateway.example.com/quarkus/json-rpc';
+
+// Or just change the path
+client.path = '/api/json-rpc';
+
+// Calls now go through the new URL
+const result = await GreetingService.hello({ name: 'World' });
+----
+
+== Using the Client Library Directly
+
+If you prefer more control, import the `JsonRPCClient` class directly:
+
+[source,javascript]
+----
+import { JsonRPCClient } from '@quarkiverse/json-rpc';
+
+const client = new JsonRPCClient({
+    path: '/quarkus/json-rpc',   // WebSocket path (default)
+    autoReconnect: true,         // Reconnect on disconnect (default)
+    maxReconnectDelay: 30000     // Max backoff in ms (default)
+});
+----
+
+=== Making Calls
+
+[source,javascript]
+----
+// Named parameters
+const result = await client.call('GreetingService#hello', { name: 'World' });
+
+// Positional parameters
+const result2 = await client.call('GreetingService#hello', ['World']);
+
+// No parameters
+const result3 = await client.call('GreetingService#hello');
+----
+
+=== Subscriptions
+
+[source,javascript]
+----
+const sub = client.subscribe('TickerService#ticker');
+sub.onItem(item => console.log(item));
+sub.onComplete(() => console.log('done'));
+sub.onError(err => console.error(err));
+
+// Cancel
+await sub.cancel();
+----
+
+=== Server Push Notifications
+
+Listen for notifications sent by `JsonRPCBroadcaster`:
+
+[source,javascript]
+----
+// Register a listener
+const off = client.on('update', data => {
+    console.log('Server push:', data);
+});
+
+// Remove the listener later
+off();
+----
+
+=== Connection Lifecycle
+
+[source,javascript]
+----
+const client = new JsonRPCClient({
+    autoConnect: false,  // Don't connect immediately
+    onOpen: () => console.log('Connected'),
+    onClose: () => console.log('Disconnected'),
+    onError: (err) => console.error('Error:', err)
+});
+
+// Connect manually
+client.connect();
+
+// Check connection state
+console.log(client.connected); // true or false
+
+// Disconnect (a subsequent connect() restores auto-reconnect)
+client.disconnect();
+----
+
+== Constructor Options
+
+[cols="1,1,1,2"]
+|===
+| Option | Type | Default | Description
+
+| `path`
+| `string`
+| `'/quarkus/json-rpc'`
+| WebSocket endpoint path
+
+| `url`
+| `string`
+| _derived from `location`_
+| Full WebSocket URL (overrides `path`)
+
+| `autoConnect`
+| `boolean`
+| `true`
+| Connect immediately on construction
+
+| `autoReconnect`
+| `boolean`
+| `true`
+| Reconnect automatically when the connection drops
+
+| `maxReconnectDelay`
+| `number`
+| `30000`
+| Maximum reconnect backoff delay in milliseconds
+
+| `onOpen`
+| `function`
+|
+| Called when the connection opens
+
+| `onClose`
+| `function`
+|
+| Called when the connection closes
+
+| `onError`
+| `function`
+|
+| Called on connection errors
+|===
