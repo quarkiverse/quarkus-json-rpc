@@ -1,14 +1,51 @@
-= Quarkus Json Rpc
+= Quarkus JSON-RPC
+:description: A Quarkus extension providing JSON-RPC 2.0 protocol support over WebSocket.
 
 include::./includes/attributes.adoc[]
 
-TIP: Describe what the extension does here.
+*Expose your Java methods as JSON-RPC 2.0 endpoints over WebSocket — with a single annotation.*
+
+Quarkus JSON-RPC discovers classes annotated with `@JsonRPCApi` at build time and makes their public methods callable via the https://www.jsonrpc.org/specification[JSON-RPC 2.0] protocol over a WebSocket connection. No manual routing, no protocol plumbing.
+
+== In a Glance
+
+[source,java]
+----
+@JsonRPCApi
+public class GreetingService {
+
+    public String hello(String name) {
+        return "Hello " + name;
+    }
+}
+----
+
+Connect to `ws://localhost:8080/quarkus/json-rpc` and send:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "GreetingService#hello",
+  "params": { "name": "World" }
+}
+----
+
+Response:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "Hello World"
+}
+----
 
 == Installation
 
-If you want to use this extension, you need to add the `io.quarkiverse.json-rpc:quarkus-json-rpc` extension first to your build file.
-
-For instance, with Maven, add the following dependency to your POM file:
+Add the extension to your project:
 
 [source,xml,subs=attributes+]
 ----
@@ -19,9 +56,47 @@ For instance, with Maven, add the following dependency to your POM file:
 </dependency>
 ----
 
-[[extension-configuration-reference]]
-== Extension Configuration Reference
+== Key Features
 
-TIP: Remove this section if you don't have Quarkus configuration properties in your extension.
+Build-time discovery::
+All `@JsonRPCApi` classes are found at build time via Jandex — no runtime classpath scanning, full ahead-of-time compilation and GraalVM native image support.
 
-include::includes/quarkus-json-rpc.adoc[leveloffset=+1, opts=optional]
+Reactive and blocking::
+Return plain types for blocking execution, `Uni<T>` for async, or `Multi<T>` for streaming subscriptions. Fine-tune with `@Blocking` and `@NonBlocking`.
+
+Server push::
+Inject `JsonRPCBroadcaster` to send notifications to all connected clients or target a specific session.
+
+Flexible parameters::
+Call methods with named parameters (JSON object) or positional parameters (JSON array).
+
+POJO support::
+Complex types are serialized and deserialized automatically via Jackson, including nested objects, collections, and Java time types.
+
+Dev UI::
+An interactive method browser and tester is available in the Quarkus Dev UI during development.
+
+== What's Next?
+
+[cols="1,2"]
+|===
+| Page | Description
+
+| xref:guides-creating-api.adoc[Creating an API]
+| Annotate your first class and understand method discovery rules.
+
+| xref:guides-execution-modes.adoc[Execution Modes & Return Types]
+| Blocking, non-blocking, `Uni`, `Multi`, `CompletionStage` — how the extension dispatches your methods.
+
+| xref:guides-parameters.adoc[Parameters]
+| Named vs. positional parameters and supported types.
+
+| xref:guides-streaming.adoc[Streaming with Multi]
+| Subscribe to server-sent streams and manage subscriptions.
+
+| xref:guides-broadcasting.adoc[Broadcasting]
+| Push notifications to clients from any CDI bean.
+
+| xref:reference-configuration.adoc[Configuration Reference]
+| All available configuration properties.
+|===

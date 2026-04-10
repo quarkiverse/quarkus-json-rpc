@@ -1,1 +1,11 @@
-* xref:index.adoc[Getting started]
+* xref:index.adoc[Overview]
+
+.Guides
+** xref:guides-creating-api.adoc[Creating an API]
+** xref:guides-execution-modes.adoc[Execution Modes & Return Types]
+** xref:guides-parameters.adoc[Parameters]
+** xref:guides-streaming.adoc[Streaming with Multi]
+** xref:guides-broadcasting.adoc[Broadcasting]
+
+.Reference
+** xref:reference-configuration.adoc[Configuration]

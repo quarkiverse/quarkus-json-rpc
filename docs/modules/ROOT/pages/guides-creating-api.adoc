@@ -1,0 +1,141 @@
+= Creating an API
+
+include::./includes/attributes.adoc[]
+
+== The @JsonRPCApi Annotation
+
+Annotate any class with `@JsonRPCApi` to expose its public methods as JSON-RPC endpoints:
+
+[source,java]
+----
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
+
+@JsonRPCApi
+public class GreetingService {
+
+    public String hello() {
+        return "Hello";
+    }
+
+    public String hello(String name) {
+        return "Hello " + name;
+    }
+}
+----
+
+The extension discovers annotated classes at build time. Each public method with a non-void return type becomes a JSON-RPC method.
+
+== Method Names
+
+Methods are addressed using the format `ClassName#methodName`. For the example above, clients call:
+
+- `GreetingService#hello` (no params) — calls `hello()`
+- `GreetingService#hello` (with a `name` param) — calls `hello(String name)`
+
+The framework disambiguates overloaded methods by the number and names of the parameters provided.
+
+== Custom Scope
+
+By default, the class simple name is used as the scope prefix. You can provide a custom scope:
+
+[source,java]
+----
+@JsonRPCApi("greet")
+public class GreetingService {
+
+    public String hello(String name) {
+        return "Hello " + name;
+    }
+}
+----
+
+Now the method is called as `greet#hello` instead of `GreetingService#hello`. This is useful for versioning or logical grouping.
+
+== Method Discovery Rules
+
+The following rules apply when the extension scans your class:
+
+- Only **public** methods are exposed.
+- Methods **must** have a non-void return type.
+- Constructors and static methods are ignored.
+- Private and package-private methods are ignored.
+
+== CDI Integration
+
+All `@JsonRPCApi` classes are automatically registered as `@ApplicationScoped` CDI beans. You can inject any CDI bean:
+
+[source,java]
+----
+@JsonRPCApi
+public class OrderService {
+
+    @Inject
+    OrderRepository repository;
+
+    public Order getOrder(String id) {
+        return repository.findById(id);
+    }
+}
+----
+
+== WebSocket Endpoint
+
+All JSON-RPC methods are served through a single WebSocket endpoint. By default, this is:
+
+----
+ws://localhost:8080/quarkus/json-rpc
+----
+
+See xref:reference-configuration.adoc[Configuration Reference] to change the path.
+
+== JSON-RPC 2.0 Protocol
+
+Requests follow the https://www.jsonrpc.org/specification[JSON-RPC 2.0 specification]:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "GreetingService#hello",
+  "params": { "name": "World" }
+}
+----
+
+Successful responses:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "Hello World"
+}
+----
+
+Error responses:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32601,
+    "message": "Method not found"
+  }
+}
+----
+
+Standard JSON-RPC 2.0 error codes are used:
+
+[cols="1,3"]
+|===
+| Code | Meaning
+
+| -32700 | Parse error
+| -32600 | Invalid request
+| -32601 | Method not found
+| -32602 | Invalid params
+| -32603 | Internal error
+|===

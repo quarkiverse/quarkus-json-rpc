@@ -1,27 +1,69 @@
-# Quarkus Json Rpc
+# Quarkus JSON-RPC
 
 [![Version](https://img.shields.io/maven-central/v/io.quarkiverse.json-rpc/quarkus-json-rpc?logo=apache-maven&style=flat-square)](https://central.sonatype.com/artifact/io.quarkiverse.json-rpc/quarkus-json-rpc-parent)
 
-## Welcome to Quarkiverse!
+A Quarkus extension that provides [JSON-RPC 2.0](https://www.jsonrpc.org/specification) protocol support over WebSocket. Annotate your classes with `@JsonRPCApi` and their public methods become callable via JSON-RPC — no boilerplate, no manual routing.
 
-Congratulations and thank you for creating a new Quarkus extension project in Quarkiverse!
+## Get Started
 
-Feel free to replace this content with the proper description of your new project and necessary instructions how to use and contribute to it.
+### 1. Add the dependency
 
-You can find the basic info, Quarkiverse policies and conventions in [the Quarkiverse wiki](https://github.com/quarkiverse/quarkiverse/wiki).
+```xml
+<dependency>
+    <groupId>io.quarkiverse.json-rpc</groupId>
+    <artifactId>quarkus-json-rpc</artifactId>
+    <version>${quarkus-json-rpc.version}</version>
+</dependency>
+```
 
-In case you are creating a Quarkus extension project for the first time, please follow [Building My First Extension](https://quarkus.io/guides/building-my-first-extension) guide.
+### 2. Create your API
 
-Other useful articles related to Quarkus extension development can be found under the [Writing Extensions](https://quarkus.io/guides/#writing-extensions) guide category on the [Quarkus.io](https://quarkus.io) website.
+```java
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
+import io.smallrye.mutiny.Uni;
 
-Thanks again, good luck and have fun!
+@JsonRPCApi
+public class GreetingService {
+
+    public String hello(String name) {
+        return "Hello " + name;
+    }
+
+    public Uni<String> helloAsync(String name) {
+        return Uni.createFrom().item("Hello " + name);
+    }
+}
+```
+
+### 3. Call it over WebSocket
+
+Connect to `ws://localhost:8080/quarkus/json-rpc` and send:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "GreetingService#hello",
+  "params": { "name": "World" }
+}
+```
+
+## Features
+
+- **JSON-RPC 2.0** — full protocol compliance including error codes and notifications
+- **WebSocket transport** — bidirectional communication out of the box
+- **Reactive** — `Uni<T>` for async results, `Multi<T>` for streaming subscriptions
+- **Blocking & non-blocking** — control execution threads with `@Blocking` and `@NonBlocking`
+- **Server push** — broadcast notifications to all clients or target specific sessions
+- **Named & positional parameters** — both JSON object and array parameter styles
+- **POJO support** — automatic Jackson serialization for complex types
+- **Native image** — full GraalVM native compilation support
+- **Dev UI** — interactive method tester and endpoint browser
 
 ## Documentation
 
-The documentation for this extension should be maintained as part of this repository and it is stored in the `docs/` directory.
+The full documentation is available at https://docs.quarkiverse.io/quarkus-json-rpc/dev/index.html.
 
-The layout should follow the [Antora's Standard File and Directory Set](https://docs.antora.org/antora/2.3/standard-directories/).
+## Samples
 
-Once the docs are ready to be published, please open a PR including this repository in the [Quarkiverse Docs Antora playbook](https://github.com/quarkiverse/quarkiverse-docs/blob/main/antora-playbook.yml#L7). See an example [here](https://github.com/quarkiverse/quarkiverse-docs/pull/1)
-
-Your documentation will then be published to the https://docs.quarkiverse.io/ website.
+Browse the [sample application](sample/) for working examples covering all supported return types, parameter styles, scoped APIs, and streaming.

@@ -1,0 +1,136 @@
+= Parameters
+
+include::./includes/attributes.adoc[]
+
+JSON-RPC 2.0 supports two styles of parameter passing: named parameters (JSON object) and positional parameters (JSON array). This extension supports both.
+
+== Named Parameters
+
+Pass parameters as a JSON object where keys match the Java method parameter names:
+
+[source,java]
+----
+@JsonRPCApi
+public class UserService {
+
+    public String greet(String name, String surname) {
+        return "Hello " + name + " " + surname;
+    }
+}
+----
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "UserService#greet",
+  "params": {
+    "name": "John",
+    "surname": "Doe"
+  }
+}
+----
+
+NOTE: Parameter names must match exactly. The project uses the `-parameters` compiler flag so that Java method parameter names are available at runtime.
+
+== Positional Parameters
+
+Pass parameters as a JSON array, matched by position:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "UserService#greet",
+  "params": ["John", "Doe"]
+}
+----
+
+The first array element maps to the first method parameter, the second to the second, and so on.
+
+== Supported Parameter Types
+
+The extension uses Jackson for deserialization, so any type that Jackson can handle is supported:
+
+- **Primitives and wrappers**: `int`, `long`, `boolean`, `double`, `String`, etc.
+- **Java time types**: `LocalDateTime`, `LocalDate`, `Instant`, etc.
+- **UUID**: `java.util.UUID`
+- **Collections**: `List<T>`, `Set<T>`, `Map<K,V>`
+- **Arrays**: `T[]`
+- **POJOs**: any class with a default constructor and getters/setters
+
+== Complex Object Parameters
+
+You can pass complex objects as parameters:
+
+[source,java]
+----
+public class Person {
+    private String name;
+    private String surname;
+    // getters and setters
+}
+
+@JsonRPCApi
+public class PersonService {
+
+    public Person echo(Person person) {
+        return person;
+    }
+}
+----
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "PersonService#echo",
+  "params": {
+    "person": {
+      "name": "John",
+      "surname": "Doe"
+    }
+  }
+}
+----
+
+== No Parameters
+
+Methods without parameters can be called with no `params` field or with an empty object/array:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "MyService#status"
+}
+----
+
+== Method Overloading
+
+The extension supports method overloading. Methods with the same name but different parameter counts are disambiguated based on the number of parameters provided:
+
+[source,java]
+----
+@JsonRPCApi
+public class GreetingService {
+
+    public String hello() {
+        return "Hello";
+    }
+
+    public String hello(String name) {
+        return "Hello " + name;
+    }
+
+    public String hello(String name, String surname) {
+        return "Hello " + name + " " + surname;
+    }
+}
+----
+
+All three methods are called as `GreetingService#hello` — the correct overload is selected by the number of parameters in the request.

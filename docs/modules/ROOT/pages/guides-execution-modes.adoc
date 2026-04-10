@@ -1,0 +1,133 @@
+= Execution Modes & Return Types
+
+include::./includes/attributes.adoc[]
+
+The extension supports several return types, each with different execution semantics. You can further control threading with the `@Blocking` and `@NonBlocking` annotations.
+
+== Synchronous Methods
+
+Plain return types run on a worker thread by default (blocking):
+
+[source,java]
+----
+@JsonRPCApi
+public class MyService {
+
+    // Runs on executor-thread (blocking, default)
+    public String compute(String input) {
+        return expensiveOperation(input);
+    }
+
+    // Runs on vert.x-eventloop-thread (non-blocking)
+    @NonBlocking
+    public String computeFast(String input) {
+        return cheapOperation(input);
+    }
+}
+----
+
+[cols="2,3"]
+|===
+| Return type | Default execution
+
+| Plain type (String, int, POJO, ...)
+| **Blocking** — worker thread via `vertx.executeBlocking()`
+
+| Plain type + `@NonBlocking`
+| **Non-blocking** — Vert.x event loop
+|===
+
+== Uni (Async Single Result)
+
+`Uni<T>` from https://smallrye.io/smallrye-mutiny/[Mutiny] returns a single async result:
+
+[source,java]
+----
+@JsonRPCApi
+public class MyService {
+
+    // Non-blocking by default
+    public Uni<String> fetchData(String id) {
+        return dataClient.get(id);
+    }
+
+    // Force blocking execution
+    @Blocking
+    public Uni<String> fetchDataBlocking(String id) {
+        return Uni.createFrom().item(blockingLookup(id));
+    }
+}
+----
+
+[cols="2,3"]
+|===
+| Return type | Default execution
+
+| `Uni<T>`
+| **Non-blocking** — event loop
+
+| `Uni<T>` + `@Blocking`
+| **Blocking** — wrapped in `vertx.executeBlocking()`
+|===
+
+== CompletionStage / CompletableFuture
+
+Standard Java async types are also supported and behave like `Uni<T>`:
+
+[source,java]
+----
+@JsonRPCApi
+public class MyService {
+
+    public CompletionStage<String> fetchAsync(String id) {
+        return CompletableFuture.supplyAsync(() -> lookup(id));
+    }
+}
+----
+
+== Multi (Streaming)
+
+`Multi<T>` enables server-sent streaming via JSON-RPC subscriptions. See xref:guides-streaming.adoc[Streaming with Multi] for the full protocol details.
+
+[source,java]
+----
+@JsonRPCApi
+public class MyService {
+
+    public Multi<String> ticker() {
+        return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
+                .onItem().transform(n -> "tick " + n);
+    }
+}
+----
+
+`Flow.Publisher<T>` is also supported and treated identically to `Multi<T>`.
+
+== Summary
+
+[cols="3,2,2"]
+|===
+| Return type | Default | Override
+
+| Plain type
+| Blocking
+| `@NonBlocking`
+
+| `Uni<T>`
+| Non-blocking
+| `@Blocking`
+
+| `CompletionStage<T>`
+| Non-blocking
+| `@Blocking`
+
+| `Multi<T>`
+| Non-blocking
+| —
+
+| `Flow.Publisher<T>`
+| Non-blocking
+| —
+|===
+
+NOTE: A method cannot be annotated with both `@Blocking` and `@NonBlocking`. The build will fail if both are present.
