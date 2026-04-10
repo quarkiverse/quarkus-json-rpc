@@ -1,0 +1,97 @@
+= Broadcasting
+
+include::./includes/attributes.adoc[]
+
+The `JsonRPCBroadcaster` service lets you push JSON-RPC notifications from the server to connected WebSocket clients. Inject it into any CDI bean — it does not need to be a `@JsonRPCApi` class.
+
+== Broadcast to All Clients
+
+[source,java]
+----
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
+import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
+import jakarta.inject.Inject;
+
+@JsonRPCApi
+public class NotificationService {
+
+    @Inject
+    JsonRPCBroadcaster broadcaster;
+
+    public String publishUpdate(String message) {
+        broadcaster.broadcast("update", Map.of("message", message));
+        return "sent";
+    }
+}
+----
+
+All connected clients receive a JSON-RPC notification:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "method": "update",
+  "params": {
+    "result": {
+      "message": "Something happened"
+    }
+  }
+}
+----
+
+== Send to a Specific Session
+
+Target a single client by session ID:
+
+[source,java]
+----
+@JsonRPCApi
+public class NotificationService {
+
+    @Inject
+    JsonRPCBroadcaster broadcaster;
+
+    public boolean notifyUser(String sessionId, String message) {
+        return broadcaster.send(sessionId, "alert", Map.of("message", message));
+    }
+}
+----
+
+Returns `true` if the session was found and the message was sent, `false` otherwise.
+
+== List Connected Sessions
+
+You can query the set of currently connected session IDs:
+
+[source,java]
+----
+@JsonRPCApi
+public class SessionService {
+
+    @Inject
+    JsonRPCBroadcaster broadcaster;
+
+    public Set<String> activeSessions() {
+        return broadcaster.connectedSessions();
+    }
+}
+----
+
+== Use Outside @JsonRPCApi
+
+`JsonRPCBroadcaster` is a regular CDI bean. You can inject it anywhere — a REST endpoint, a scheduled job, an event observer:
+
+[source,java]
+----
+@ApplicationScoped
+public class EventProcessor {
+
+    @Inject
+    JsonRPCBroadcaster broadcaster;
+
+    public void onOrderPlaced(@Observes OrderPlacedEvent event) {
+        broadcaster.broadcast("orderPlaced", event);
+    }
+}
+----

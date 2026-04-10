@@ -1,0 +1,7 @@
+= Configuration Reference
+
+include::./includes/attributes.adoc[]
+
+All configuration properties are fixed at build time.
+
+include::includes/quarkus-json-rpc.adoc[leveloffset=+1, opts=optional]
