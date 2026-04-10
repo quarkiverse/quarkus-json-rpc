@@ -392,9 +392,16 @@ public class JsonRPCProcessor {
 
     // Dev UI
 
+    private static final DotName ROLES_ALLOWED = DotName.createSimple("jakarta.annotation.security.RolesAllowed");
+    private static final DotName PERMIT_ALL = DotName.createSimple("jakarta.annotation.security.PermitAll");
+    private static final DotName DENY_ALL = DotName.createSimple("jakarta.annotation.security.DenyAll");
+    private static final DotName AUTHENTICATED = DotName.createSimple("io.quarkus.security.Authenticated");
+
     @BuildStep(onlyIf = IsLocalDevelopment.class)
-    CardPageBuildItem createDevUICard(JsonRPCConfig jsonRPCConfig, JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
+    CardPageBuildItem createDevUICard(JsonRPCConfig jsonRPCConfig, JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
+            CombinedIndexBuildItem combinedIndexBuildItem) {
         CardPageBuildItem card = new CardPageBuildItem();
+        IndexView index = combinedIndexBuildItem.getIndex();
 
         // Build-time data: registered methods table
         List<Map<String, Object>> methodsList = new ArrayList<>();
@@ -427,10 +434,13 @@ public class JsonRPCProcessor {
             }
             methodData.put("executionMode", execMode);
 
+            // Detect security annotations
+            methodData.put("security", resolveSecurityConstraint(index, method));
+
             methodsList.add(methodData);
         }
         card.addBuildTimeData("methods", methodsList,
-                "All registered JSON-RPC methods with their signatures and execution modes", true);
+                "All registered JSON-RPC methods with their signatures, execution modes, and security constraints", true);
         card.addBuildTimeData("endpointPath", jsonRPCConfig.webSocket().path(),
                 "The WebSocket endpoint path for JSON-RPC connections", true);
 
@@ -471,6 +481,90 @@ public class JsonRPCProcessor {
                 .enableMcpFuctionByDefault()
                 .build();
         return actions;
+    }
+
+    /**
+     * Resolve the effective security constraint for a JSON-RPC method by checking
+     * for security annotations on the method first, then falling back to the class.
+     *
+     * @return a human-readable security label, or empty string if unsecured
+     */
+    private String resolveSecurityConstraint(IndexView index, JsonRPCMethod method) {
+        ClassInfo classInfo = index.getClassByName(method.getClazz().getName());
+        if (classInfo == null) {
+            return "";
+        }
+
+        // Find the matching method in the Jandex index
+        MethodInfo methodInfo = null;
+        for (MethodInfo mi : classInfo.methods()) {
+            if (mi.name().equals(method.getMethodName())) {
+                int paramCount = method.hasParams() ? method.getParams().size() : 0;
+                if (mi.parametersCount() == paramCount) {
+                    methodInfo = mi;
+                    break;
+                }
+            }
+        }
+
+        // Check method-level annotations first (they override class-level)
+        if (methodInfo != null) {
+            String methodSecurity = getSecurityLabel(methodInfo);
+            if (methodSecurity != null) {
+                return methodSecurity;
+            }
+        }
+
+        // Fall back to class-level annotations
+        String classSecurity = getSecurityLabel(classInfo);
+        if (classSecurity != null) {
+            return classSecurity;
+        }
+
+        return "";
+    }
+
+    private String getSecurityLabel(MethodInfo method) {
+        if (method.hasAnnotation(ROLES_ALLOWED)) {
+            AnnotationInstance ann = method.annotation(ROLES_ALLOWED);
+            return "@RolesAllowed(" + formatRoles(ann) + ")";
+        }
+        if (method.hasAnnotation(PERMIT_ALL)) {
+            return "@PermitAll";
+        }
+        if (method.hasAnnotation(DENY_ALL)) {
+            return "@DenyAll";
+        }
+        if (method.hasAnnotation(AUTHENTICATED)) {
+            return "@Authenticated";
+        }
+        return null;
+    }
+
+    private String getSecurityLabel(ClassInfo classInfo) {
+        if (classInfo.hasAnnotation(ROLES_ALLOWED)) {
+            AnnotationInstance ann = classInfo.annotation(ROLES_ALLOWED);
+            return "@RolesAllowed(" + formatRoles(ann) + ")";
+        }
+        if (classInfo.hasAnnotation(PERMIT_ALL)) {
+            return "@PermitAll";
+        }
+        if (classInfo.hasAnnotation(DENY_ALL)) {
+            return "@DenyAll";
+        }
+        if (classInfo.hasAnnotation(AUTHENTICATED)) {
+            return "@Authenticated";
+        }
+        return null;
+    }
+
+    private String formatRoles(AnnotationInstance rolesAllowed) {
+        AnnotationValue value = rolesAllowed.value();
+        if (value == null) {
+            return "";
+        }
+        String[] roles = value.asStringArray();
+        return String.join(", ", roles);
     }
 
     private static final Set<String> NON_STREAMING_REACTIVE_TYPES = Set.of(
