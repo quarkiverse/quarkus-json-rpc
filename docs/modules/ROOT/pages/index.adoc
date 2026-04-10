@@ -106,6 +106,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 | xref:guides-security.adoc[Security]
 | Secure endpoints with annotations or HTTP auth policies.
 
+| xref:guides-concurrency.adoc[Concurrency & Session Isolation]
+| Connection isolation, shared bean instances, threading model, and tuning for production.
+
 | xref:guides-javascript-client.adoc[JavaScript Client]
 | Generate a typed JavaScript proxy for calling your endpoints from the browser.
 

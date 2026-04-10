@@ -7,6 +7,7 @@
 ** xref:guides-streaming.adoc[Streaming with Multi]
 ** xref:guides-broadcasting.adoc[Broadcasting]
 ** xref:guides-security.adoc[Security]
+** xref:guides-concurrency.adoc[Concurrency & Session Isolation]
 ** xref:guides-javascript-client.adoc[JavaScript Client]
 
 .Reference
