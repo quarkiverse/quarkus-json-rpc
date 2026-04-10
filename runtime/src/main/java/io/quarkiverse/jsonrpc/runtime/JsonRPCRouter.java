@@ -50,6 +50,9 @@ public class JsonRPCRouter {
 
     private final Map<ServerWebSocket, SecurityIdentity> socketIdentities = new ConcurrentHashMap<>();
 
+    private volatile CurrentIdentityAssociation identityAssociation;
+    private volatile boolean identityAssociationUnavailable;
+
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
 
@@ -107,13 +110,29 @@ public class JsonRPCRouter {
     private void setSecurityIdentity(ServerWebSocket socket) {
         SecurityIdentity identity = socketIdentities.get(socket);
         if (identity != null) {
-            try {
-                CurrentIdentityAssociation cia = Arc.container().select(CurrentIdentityAssociation.class).get();
+            CurrentIdentityAssociation cia = getIdentityAssociation();
+            if (cia != null) {
                 cia.setIdentity(identity);
-            } catch (Exception e) {
-                LOG.debugf("Could not set security identity: %s", e.getMessage());
             }
         }
+    }
+
+    private CurrentIdentityAssociation getIdentityAssociation() {
+        if (identityAssociationUnavailable) {
+            return null;
+        }
+        CurrentIdentityAssociation result = identityAssociation;
+        if (result == null) {
+            try {
+                result = Arc.container().select(CurrentIdentityAssociation.class).get();
+                identityAssociation = result;
+            } catch (jakarta.enterprise.inject.UnsatisfiedResolutionException e) {
+                LOG.debugf("CurrentIdentityAssociation not available — no security extension present");
+                identityAssociationUnavailable = true;
+                return null;
+            }
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")

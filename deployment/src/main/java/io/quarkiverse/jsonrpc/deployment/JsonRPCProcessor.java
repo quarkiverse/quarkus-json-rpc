@@ -524,35 +524,18 @@ public class JsonRPCProcessor {
         return "";
     }
 
-    private String getSecurityLabel(MethodInfo method) {
-        if (method.hasAnnotation(ROLES_ALLOWED)) {
-            AnnotationInstance ann = method.annotation(ROLES_ALLOWED);
+    private String getSecurityLabel(AnnotationTarget target) {
+        if (target.hasAnnotation(ROLES_ALLOWED)) {
+            AnnotationInstance ann = target.annotation(ROLES_ALLOWED);
             return "@RolesAllowed(" + formatRoles(ann) + ")";
         }
-        if (method.hasAnnotation(PERMIT_ALL)) {
+        if (target.hasAnnotation(PERMIT_ALL)) {
             return "@PermitAll";
         }
-        if (method.hasAnnotation(DENY_ALL)) {
+        if (target.hasAnnotation(DENY_ALL)) {
             return "@DenyAll";
         }
-        if (method.hasAnnotation(AUTHENTICATED)) {
-            return "@Authenticated";
-        }
-        return null;
-    }
-
-    private String getSecurityLabel(ClassInfo classInfo) {
-        if (classInfo.hasAnnotation(ROLES_ALLOWED)) {
-            AnnotationInstance ann = classInfo.annotation(ROLES_ALLOWED);
-            return "@RolesAllowed(" + formatRoles(ann) + ")";
-        }
-        if (classInfo.hasAnnotation(PERMIT_ALL)) {
-            return "@PermitAll";
-        }
-        if (classInfo.hasAnnotation(DENY_ALL)) {
-            return "@DenyAll";
-        }
-        if (classInfo.hasAnnotation(AUTHENTICATED)) {
+        if (target.hasAnnotation(AUTHENTICATED)) {
             return "@Authenticated";
         }
         return null;

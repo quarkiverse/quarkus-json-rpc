@@ -66,7 +66,6 @@ public class SecurityHttpPolicyJsonRpcTest {
 
     @Test
     public void testUnauthenticatedUserIsRejected() throws Exception {
-        int id = count.incrementAndGet();
         WebSocketClient client = vertx.createWebSocketClient();
         try {
             LinkedBlockingDeque<String> message = new LinkedBlockingDeque<>();

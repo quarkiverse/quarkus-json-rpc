@@ -107,6 +107,57 @@ public class SecurityJsonRpcTest {
         Assertions.assertEquals(-32001, code, "Expected FORBIDDEN error code");
     }
 
+    // --- @DenyAll override tests ---
+
+    @Test
+    public void testAdminCannotAccessDenyAllMethod() throws Exception {
+        JsonObject response = callWithAuthRaw("SecuredResource#denied", "admin", "admin");
+        Assertions.assertNotNull(response.getJsonObject("error"), "Expected error response for @DenyAll method");
+        int code = response.getJsonObject("error").getInteger("code");
+        Assertions.assertEquals(-32001, code, "Expected FORBIDDEN error code");
+    }
+
+    @Test
+    public void testUserCannotAccessDenyAllMethod() throws Exception {
+        JsonObject response = callWithAuthRaw("SecuredResource#denied", "user", "user");
+        Assertions.assertNotNull(response.getJsonObject("error"), "Expected error response for @DenyAll method");
+        int code = response.getJsonObject("error").getInteger("code");
+        Assertions.assertEquals(-32001, code, "Expected FORBIDDEN error code");
+    }
+
+    // --- @Authenticated override tests ---
+
+    @Test
+    public void testAdminCanAccessAuthenticatedMethod() throws Exception {
+        String result = callWithAuth("SecuredResource#authenticatedOnly", "admin", "admin");
+        Assertions.assertEquals("authenticated-info", result);
+    }
+
+    @Test
+    public void testUserCanAccessAuthenticatedMethod() throws Exception {
+        String result = callWithAuth("SecuredResource#authenticatedOnly", "user", "user");
+        Assertions.assertEquals("authenticated-info", result);
+    }
+
+    // --- Anonymous user tests ---
+
+    @Test
+    public void testAnonymousCanAccessPermitAllMethod() throws Exception {
+        JsonObject response = callAnonymousRaw("SecuredResource#publicInfo");
+        Assertions.assertNull(response.getJsonObject("error"), "Expected successful response for @PermitAll");
+        Assertions.assertEquals("public-info", response.getString("result"));
+    }
+
+    @Test
+    public void testAnonymousCannotAccessAdminMethod() throws Exception {
+        JsonObject response = callAnonymousRaw("SecuredResource#adminOnly");
+        Assertions.assertNotNull(response.getJsonObject("error"), "Expected error response for anonymous user");
+        int code = response.getJsonObject("error").getInteger("code");
+        // Anonymous is either unauthorized or forbidden depending on interceptor behavior
+        Assertions.assertTrue(code == -32000 || code == -32001,
+                "Expected UNAUTHORIZED or FORBIDDEN error code, got: " + code);
+    }
+
     // --- Helper methods ---
 
     private String callWithAuth(String method, String username, String password) throws Exception {
@@ -116,9 +167,9 @@ public class SecurityJsonRpcTest {
     private String callWithAuth(String method, String username, String password, Map<String, Object> params)
             throws Exception {
         JsonObject response = callWithAuthRaw(method, username, password, params);
-        String error = response.getString("error");
+        JsonObject error = response.getJsonObject("error");
         if (error != null) {
-            Assertions.fail("Unexpected error: " + error);
+            Assertions.fail("Unexpected error: " + error.encodePrettily());
         }
         return response.getString("result");
     }
@@ -156,6 +207,40 @@ public class SecurityJsonRpcTest {
                             ws.writeTextMessage(jsonObject.encodePrettily());
                         } else {
                             // Connection rejected (e.g., 401/403 during upgrade)
+                            message.add("{\"id\":" + id
+                                    + ",\"error\":{\"code\":-32000,\"message\":\"WebSocket upgrade rejected: "
+                                    + r.cause().getMessage() + "\"}}");
+                        }
+                    });
+
+            String response = message.poll(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(response, "No response received within timeout");
+            return Json.decodeValue(response, JsonObject.class);
+        } finally {
+            client.close().toCompletionStage().toCompletableFuture().get();
+        }
+    }
+
+    private JsonObject callAnonymousRaw(String method) throws Exception {
+        int id = count.incrementAndGet();
+        WebSocketClient client = vertx.createWebSocketClient();
+        try {
+            LinkedBlockingDeque<String> message = new LinkedBlockingDeque<>();
+
+            WebSocketConnectOptions options = new WebSocketConnectOptions()
+                    .setPort(jsonRpcUri.getPort())
+                    .setHost(jsonRpcUri.getHost())
+                    .setURI(jsonRpcUri.getPath());
+
+            client.connect(options)
+                    .onComplete(r -> {
+                        if (r.succeeded()) {
+                            WebSocket ws = r.result();
+                            ws.textMessageHandler(msg -> message.add(msg));
+
+                            JsonObject jsonObject = JsonObject.of("jsonrpc", "2.0", "id", id, "method", method);
+                            ws.writeTextMessage(jsonObject.encodePrettily());
+                        } else {
                             message.add("{\"id\":" + id
                                     + ",\"error\":{\"code\":-32000,\"message\":\"WebSocket upgrade rejected: "
                                     + r.cause().getMessage() + "\"}}");
