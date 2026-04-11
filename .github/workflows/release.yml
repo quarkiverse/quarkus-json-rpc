@@ -68,3 +68,9 @@ jobs:
         run: |
           git push
           git push origin ${{steps.metadata.outputs.current-version}}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{steps.metadata.outputs.current-version}}
+          generate_release_notes: true
