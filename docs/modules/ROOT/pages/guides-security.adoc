@@ -1,0 +1,187 @@
+= Security
+:description: Securing JSON-RPC endpoints with Quarkus security annotations and HTTP policies.
+
+include::./includes/attributes.adoc[]
+
+Quarkus JSON-RPC integrates with the standard Quarkus security framework. You can secure your endpoints using CDI security annotations on your `@JsonRPCApi` classes, or by applying HTTP auth policies to the WebSocket path via configuration. Both approaches are opt-in — endpoints are unsecured by default.
+
+== Security Annotations
+
+Add standard Jakarta security annotations directly to your `@JsonRPCApi` classes and methods. This requires a Quarkus security extension on the classpath (e.g., `quarkus-oidc`, `quarkus-elytron-security-properties-file`).
+
+=== Class-Level Security
+
+Annotations on the class apply to all methods:
+
+[source,java]
+----
+@JsonRPCApi
+@RolesAllowed("admin")
+public class AdminService {
+
+    public String getSecretData() {
+        return "top-secret"; // <1>
+    }
+}
+----
+<1> Only users with the `admin` role can call this method.
+
+=== Method-Level Overrides
+
+Method-level annotations override the class-level setting:
+
+[source,java]
+----
+@JsonRPCApi
+@RolesAllowed("admin")
+public class AdminService {
+
+    public String adminOnly() {
+        return "admin-secret"; // <1>
+    }
+
+    @PermitAll
+    public String publicInfo() {
+        return "public-info"; // <2>
+    }
+
+    @RolesAllowed("user")
+    public String userInfo() {
+        return "user-info"; // <3>
+    }
+}
+----
+<1> Inherits `@RolesAllowed("admin")` from the class.
+<2> `@PermitAll` overrides — any authenticated user can call this.
+<3> `@RolesAllowed("user")` overrides — only users with the `user` role.
+
+=== Supported Annotations
+
+[cols="1,2"]
+|===
+| Annotation | Effect
+
+| `@RolesAllowed("role")`
+| Only users with the specified role(s) can invoke the method.
+
+| `@Authenticated`
+| Any authenticated user can invoke the method.
+
+| `@PermitAll`
+| Any user (including anonymous, if the connection is allowed) can invoke the method.
+
+| `@DenyAll`
+| No user can invoke the method.
+|===
+
+=== Error Responses
+
+When a security check fails, the extension returns a JSON-RPC error response:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32001,
+    "message": "Method [AdminService#adminOnly] failed: ..."
+  }
+}
+----
+
+[cols="1,1,2"]
+|===
+| Code | Name | Meaning
+
+| `-32000`
+| Unauthorized
+| Authentication is required but was not provided or is invalid.
+
+| `-32001`
+| Forbidden
+| Authenticated but not authorized for the requested method.
+|===
+
+== HTTP Auth Policies
+
+You can also secure the entire WebSocket endpoint at the HTTP level using standard Quarkus HTTP auth policies. This protects the WebSocket upgrade — unauthenticated users receive an HTTP 401 response before a WebSocket connection is established.
+
+[source,properties]
+----
+# Require authentication for the JSON-RPC endpoint
+quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc
+quarkus.http.auth.permission.json-rpc.policy=authenticated
+----
+
+This approach works with any Quarkus security mechanism (Basic auth, OIDC, JWT, etc.) and requires no code changes to your `@JsonRPCApi` classes.
+
+=== Role-Based HTTP Policies
+
+You can restrict access to specific roles at the HTTP level:
+
+[source,properties]
+----
+quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc
+quarkus.http.auth.permission.json-rpc.policy=role-policy
+
+quarkus.http.auth.policy.role-policy.roles-allowed=admin,operator
+----
+
+== Combining Both Approaches
+
+Annotations and HTTP policies can be combined:
+
+* *HTTP auth policy* — gates who can _connect_ to the WebSocket.
+* *Security annotations* — gates who can _invoke specific methods_ within a connection.
+
+For example, require authentication to connect, then use `@RolesAllowed` to restrict individual operations:
+
+[source,properties]
+----
+quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc
+quarkus.http.auth.permission.json-rpc.policy=authenticated
+----
+
+[source,java]
+----
+@JsonRPCApi
+public class DataService {
+
+    @RolesAllowed("admin")
+    public String sensitiveOperation() { ... }
+
+    public String regularOperation() { ... } // <1>
+}
+----
+<1> Any authenticated user can call this (connection already requires authentication).
+
+== Example: Basic Auth Setup
+
+.pom.xml
+[source,xml]
+----
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-elytron-security-properties-file</artifactId>
+</dependency>
+----
+
+.application.properties
+[source,properties]
+----
+quarkus.http.auth.basic=true
+quarkus.security.users.embedded.enabled=true
+quarkus.security.users.embedded.plain-text=true
+quarkus.security.users.embedded.users.admin=secret
+quarkus.security.users.embedded.roles.admin=admin
+----
+
+Connect with credentials:
+
+[source,javascript]
+----
+// Browser WebSocket API does not support Authorization headers directly.
+// Use a server-side proxy or the Quarkus Sec-WebSocket-Protocol pattern
+// for browser-based clients. Java/Node.js clients can set headers directly.
+----

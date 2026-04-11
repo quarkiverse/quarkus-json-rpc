@@ -1,0 +1,103 @@
+= Concurrency & Session Isolation
+
+include::./includes/attributes.adoc[]
+
+When multiple users connect to your JSON-RPC WebSocket endpoint simultaneously, each connection is fully isolated and the backend is designed to handle concurrent load efficiently.
+
+== Connection Isolation
+
+Each WebSocket connection is independent. The extension tracks every connection as a separate session with its own unique ID. This means:
+
+- **Requests and responses are scoped to a single connection** — a response is always sent back to the socket that made the request, never to another user.
+- **Streaming subscriptions (`Multi<T>`) are per-connection** — each client manages its own subscriptions. When a connection closes, only that connection's subscriptions are cancelled.
+- **Broadcasting targets connections explicitly** — when you use `JsonRPCBroadcaster`, you choose whether to send to all connected clients or to a specific session by ID.
+
+There is no risk of one user seeing another user's responses or interfering with their subscriptions.
+
+== Shared Bean Instances
+
+While connections are isolated, the `@JsonRPCApi` beans that handle requests are **shared across all connections**. Classes annotated with `@JsonRPCApi` are registered as `@ApplicationScoped` CDI beans, meaning a single instance serves all users.
+
+This is perfectly fine for stateless services:
+
+[source,java]
+----
+@JsonRPCApi
+public class GreetingService {
+
+    @Inject
+    GreetingRepository repository;
+
+    // Safe — no mutable instance state
+    public String hello(String name) {
+        return repository.greet(name);
+    }
+}
+----
+
+If you need per-user state, do not store it in instance fields. Instead, use a `ConcurrentHashMap` keyed by a user or session identifier, or use a request-scoped CDI bean:
+
+[source,java]
+----
+@JsonRPCApi
+public class StatefulService {
+
+    private final ConcurrentMap<String, UserState> stateByUser = new ConcurrentHashMap<>();
+
+    public String getState(String userId) {
+        return stateByUser.getOrDefault(userId, UserState.EMPTY).toString();
+    }
+}
+----
+
+== Threading Model
+
+The extension runs on the Vert.x event loop and dispatches method calls based on their return type and annotations:
+
+[cols="2,3"]
+|===
+| Scenario | Thread
+
+| Plain return type (default)
+| Worker thread — does **not** block the event loop
+
+| Plain return type + `@NonBlocking`
+| Event loop — must return quickly
+
+| `Uni<T>` / `CompletionStage<T>` (default)
+| Event loop — non-blocking, ideal for reactive I/O
+
+| `Uni<T>` + `@Blocking`
+| Worker thread — wrapped in `vertx.executeBlocking()`
+
+| `Multi<T>` / `Flow.Publisher<T>`
+| Event loop — reactive streaming
+|===
+
+Because blocking calls are offloaded to a worker pool and async calls stay on the event loop, the server can handle many concurrent connections without threads becoming a bottleneck. See xref:guides-execution-modes.adoc[Execution Modes & Return Types] for full details.
+
+== Tuning for Production
+
+The default thread pool sizes work well for development and moderate loads. For production workloads, you can tune them via configuration:
+
+[cols="3,1,3"]
+|===
+| Property | Default | Purpose
+
+| `quarkus.vertx.event-loops-pool-size`
+| 2 × CPU cores
+| Number of event loop threads handling WebSocket I/O and non-blocking methods
+
+| `quarkus.vertx.worker-pool-size`
+| 20
+| Number of worker threads for blocking method calls
+|===
+
+If most of your methods are blocking (plain return types without `@NonBlocking`), consider increasing the worker pool size. If most are reactive (`Uni<T>`, `Multi<T>`), the defaults are usually sufficient even under heavy load.
+
+== Best Practices
+
+* **Prefer `Uni<T>` return types** for I/O-bound methods — this keeps the event loop free and maximizes throughput.
+* **Use `@Blocking` only when necessary** — for example, when calling JDBC or other inherently blocking APIs.
+* **Keep `@JsonRPCApi` beans stateless** — since a single instance serves all connections, avoid mutable instance state or protect it with proper synchronization.
+* **Use `Multi<T>` for server-push scenarios** — it streams items reactively without dedicating a thread per subscription.

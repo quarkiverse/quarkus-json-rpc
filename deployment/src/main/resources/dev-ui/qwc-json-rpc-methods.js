@@ -26,6 +26,21 @@ export class QwcJsonRpcMethods extends LitElement {
         .action-link:hover {
             text-decoration: underline;
         }
+        .security-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        .security-badge.secured {
+            background: var(--lumo-primary-color-10pct, #e3f2fd);
+            color: var(--lumo-primary-text-color, #1565c0);
+        }
+        .security-badge.unsecured {
+            color: var(--lumo-secondary-text-color, #999);
+            font-style: italic;
+        }
     `;
 
     render() {
@@ -36,6 +51,12 @@ export class QwcJsonRpcMethods extends LitElement {
                 <vaadin-grid-sort-column path="methodName" header="Method" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="parameters" header="Parameters" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="executionMode" header="Execution Mode" auto-width resizable></vaadin-grid-sort-column>
+                <vaadin-grid-column header="Security" auto-width resizable
+                    ${columnBodyRenderer((item) => item.security
+                        ? html`<span class="security-badge secured">${item.security}</span>`
+                        : html`<span class="security-badge unsecured">none</span>`
+                    , [])}>
+                </vaadin-grid-column>
                 <vaadin-grid-column
                     frozen-to-end
                     auto-width

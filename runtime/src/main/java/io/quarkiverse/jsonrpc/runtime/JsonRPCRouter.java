@@ -24,6 +24,8 @@ import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest;
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.ManagedContext;
+import io.quarkus.security.identity.CurrentIdentityAssociation;
+import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.context.SmallRyeThreadContext;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -45,6 +47,11 @@ public class JsonRPCRouter {
     private final JsonRPCCodec codec;
 
     private final Map<ServerWebSocket, Map<String, Cancellable>> socketSubscriptions = new ConcurrentHashMap<>();
+
+    private final Map<ServerWebSocket, SecurityIdentity> socketIdentities = new ConcurrentHashMap<>();
+
+    private volatile CurrentIdentityAssociation identityAssociation;
+    private volatile boolean identityAssociationUnavailable;
 
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
@@ -95,8 +102,41 @@ public class JsonRPCRouter {
         }
     }
 
+    /**
+     * Set the security identity captured during WebSocket upgrade into the current request context,
+     * so CDI security interceptors ({@code @RolesAllowed}, {@code @Authenticated}, etc.) can authorize
+     * method invocations.
+     */
+    private void setSecurityIdentity(ServerWebSocket socket) {
+        SecurityIdentity identity = socketIdentities.get(socket);
+        if (identity != null) {
+            CurrentIdentityAssociation cia = getIdentityAssociation();
+            if (cia != null) {
+                cia.setIdentity(identity);
+            }
+        }
+    }
+
+    private CurrentIdentityAssociation getIdentityAssociation() {
+        if (identityAssociationUnavailable) {
+            return null;
+        }
+        CurrentIdentityAssociation result = identityAssociation;
+        if (result == null) {
+            try {
+                result = Arc.container().select(CurrentIdentityAssociation.class).get();
+                identityAssociation = result;
+            } catch (jakarta.enterprise.inject.UnsatisfiedResolutionException e) {
+                LOG.debugf("CurrentIdentityAssociation not available — no security extension present");
+                identityAssociationUnavailable = true;
+                return null;
+            }
+        }
+        return result;
+    }
+
     @SuppressWarnings("unchecked")
-    private Uni<?> invoke(ReflectionInfo info, Object target, Object[] args) {
+    private Uni<?> invoke(ReflectionInfo info, Object target, Object[] args, ServerWebSocket socket) {
         Context vc = Vertx.currentContext();
 
         ManagedContext currentManagedContext = Arc.container().requestContext();
@@ -106,6 +146,7 @@ public class JsonRPCRouter {
                 currentManagedContext.activate();
                 activated = true;
             }
+            setSecurityIdentity(socket);
             if (info.isReturningUni()) {
                 if (info.isExplicitlyBlocking()) {
                     SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
@@ -167,13 +208,21 @@ public class JsonRPCRouter {
     }
 
     public void addSocket(ServerWebSocket socket) {
+        addSocket(socket, null);
+    }
+
+    public void addSocket(ServerWebSocket socket, SecurityIdentity identity) {
         sessions.addSession(socket);
+        if (identity != null && !identity.isAnonymous()) {
+            socketIdentities.put(socket, identity);
+        }
         socket.textMessageHandler((e) -> {
             JsonRPCRequest jsonRpcRequest = codec.readRequest(e);
             route(jsonRpcRequest, socket);
         });
         socket.closeHandler((e) -> {
             sessions.removeSession(socket);
+            socketIdentities.remove(socket);
             Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
                 for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {
@@ -209,7 +258,15 @@ public class JsonRPCRouter {
 
             if (reflectionInfo.isReturningMulti() || reflectionInfo.isReturningFlowPublisher()) {
                 Multi<?> multi;
+                ManagedContext requestContext = Arc.container().requestContext();
+                boolean activated = false;
                 try {
+                    if (!requestContext.isActive()) {
+                        requestContext.activate();
+                        activated = true;
+                    }
+                    setSecurityIdentity(s);
+
                     Object result;
                     if (jsonRpcRequest.hasParams()) {
                         Object[] args = getArgsAsObjects(reflectionInfo, jsonRpcRequest);
@@ -227,6 +284,10 @@ public class JsonRPCRouter {
                             jsonRpcRequest);
                     codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(e));
                     return;
+                } finally {
+                    if (activated) {
+                        requestContext.deactivate();
+                    }
                 }
 
                 String subscriptionId = UUID.randomUUID().toString();
@@ -262,9 +323,9 @@ public class JsonRPCRouter {
                 try {
                     if (jsonRpcRequest.hasParams()) {
                         Object[] args = getArgsAsObjects(reflectionInfo, jsonRpcRequest);
-                        uni = invoke(reflectionInfo, target, args);
+                        uni = invoke(reflectionInfo, target, args, s);
                     } else {
-                        uni = invoke(reflectionInfo, target, new Object[0]);
+                        uni = invoke(reflectionInfo, target, new Object[0], s);
                     }
                 } catch (Exception e) {
                     LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),

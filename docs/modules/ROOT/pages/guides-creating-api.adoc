@@ -62,7 +62,7 @@ The following rules apply when the extension scans your class:
 
 == CDI Integration
 
-All `@JsonRPCApi` classes are automatically registered as `@ApplicationScoped` CDI beans. You can inject any CDI bean:
+All `@JsonRPCApi` classes are automatically registered as `@Singleton` CDI beans. You can inject any CDI bean:
 
 [source,java]
 ----
@@ -138,4 +138,6 @@ Standard JSON-RPC 2.0 error codes are used:
 | -32601 | Method not found
 | -32602 | Invalid params
 | -32603 | Internal error
+| -32000 | Unauthorized (authentication required)
+| -32001 | Forbidden (insufficient permissions)
 |===

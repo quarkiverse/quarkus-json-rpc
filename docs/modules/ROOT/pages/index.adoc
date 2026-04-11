@@ -73,6 +73,9 @@ Call methods with named parameters (JSON object) or positional parameters (JSON 
 POJO support::
 Complex types are serialized and deserialized automatically via Jackson, including nested objects, collections, and Java time types.
 
+Security::
+Secure your endpoints with standard Jakarta security annotations (`@RolesAllowed`, `@Authenticated`, etc.) or Quarkus HTTP auth policies — opt-in, no changes needed for unsecured use cases.
+
 JavaScript client::
 Optionally generate a typed JavaScript proxy for all your endpoints, ready to import from Quarkus Web Bundler or any ES module environment.
 
@@ -99,6 +102,12 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 
 | xref:guides-broadcasting.adoc[Broadcasting]
 | Push notifications to clients from any CDI bean.
+
+| xref:guides-security.adoc[Security]
+| Secure endpoints with annotations or HTTP auth policies.
+
+| xref:guides-concurrency.adoc[Concurrency & Session Isolation]
+| Connection isolation, shared bean instances, threading model, and tuning for production.
 
 | xref:guides-javascript-client.adoc[JavaScript Client]
 | Generate a typed JavaScript proxy for calling your endpoints from the browser.

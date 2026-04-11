@@ -334,7 +334,7 @@ class JsonRpcApp extends LitElement {
             return html`<h1>Loading...</h1>`;
         }
 
-        const {HelloResource, PojoResource, scoped} = this._rpc;
+        const {HelloResource, PojoResource, SecuredResource, scoped} = this._rpc;
 
         const calls = [
             ['HelloResource.hello()', () => HelloResource.hello()],
@@ -349,6 +349,13 @@ class JsonRpcApp extends LitElement {
             ['scoped.hello()', () => scoped.hello()],
             ['scoped.hello({name})', () => scoped.hello({name: 'World'})],
             ['scoped.pojo()', () => scoped.pojo()],
+        ];
+
+        const securedCalls = [
+            ['adminSecret() @RolesAllowed("admin")', () => SecuredResource.adminSecret()],
+            ['adminGreeting({name}) @RolesAllowed("admin")', () => SecuredResource.adminGreeting({name: 'Boss'})],
+            ['publicInfo() @PermitAll', () => SecuredResource.publicInfo()],
+            ['userDashboard() @RolesAllowed("user")', () => SecuredResource.userDashboard()],
         ];
 
         const streams = [
@@ -370,6 +377,15 @@ class JsonRpcApp extends LitElement {
                     <label>Click a method to invoke it</label>
                     <div class="quick-methods">
                         ${calls.map(([label, fn]) =>
+                            html`<button ?disabled=${!this._connected}
+                                         @click=${() => this._call(label, fn)}>${label}</button>`
+                        )}
+                    </div>
+
+                    <h2>Secured Methods</h2>
+                    <label>Methods with security annotations (connect as admin:admin or user:user)</label>
+                    <div class="quick-methods">
+                        ${securedCalls.map(([label, fn]) =>
                             html`<button ?disabled=${!this._connected}
                                          @click=${() => this._call(label, fn)}>${label}</button>`
                         )}

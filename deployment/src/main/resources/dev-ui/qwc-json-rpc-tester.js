@@ -78,6 +78,15 @@ export class QwcJsonRpcTester extends LitElement {
             font-size: 0.85em;
             color: var(--lumo-secondary-text-color);
         }
+        .security-info {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+            background: var(--lumo-primary-color-10pct, #e3f2fd);
+            color: var(--lumo-primary-text-color, #1565c0);
+        }
     `;
 
     static properties = {
@@ -132,6 +141,13 @@ export class QwcJsonRpcTester extends LitElement {
                     `)}
                 </select>
             </div>
+
+            ${this._selectedMethod?.security ? html`
+                <div class="form-row">
+                    <label>Security:</label>
+                    <span class="security-info">${this._selectedMethod.security}</span>
+                </div>
+            ` : ''}
 
             ${this._selectedMethod?.parameters?.length > 0 ?
                 this._selectedMethod.parameters.split(', ').map(p => {
