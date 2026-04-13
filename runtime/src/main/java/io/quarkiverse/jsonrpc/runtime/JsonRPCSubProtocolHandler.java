@@ -4,6 +4,8 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 import org.jboss.logging.Logger;
 
@@ -25,6 +27,10 @@ import io.vertx.ext.web.RoutingContext;
  * request so that Quarkus authentication mechanisms can process them normally.
  * The encoded entries are removed from {@code Sec-WebSocket-Protocol}, leaving
  * only real sub-protocol names.
+ * <p>
+ * Only headers in the {@link #ALLOWED_HEADERS} allowlist are accepted to prevent
+ * arbitrary header injection. The filter is scoped to the configured JSON-RPC
+ * WebSocket path.
  */
 public class JsonRPCSubProtocolHandler implements Handler<RoutingContext> {
     private static final Logger LOG = Logger.getLogger(JsonRPCSubProtocolHandler.class.getName());
@@ -34,8 +40,21 @@ public class JsonRPCSubProtocolHandler implements Handler<RoutingContext> {
     private static final String WEBSOCKET = "websocket";
     private static final String QUARKUS_HTTP_UPGRADE_PREFIX = "quarkus-http-upgrade#";
 
+    private static final Set<String> ALLOWED_HEADERS = Set.of("authorization");
+
+    private final String wsPath;
+
+    public JsonRPCSubProtocolHandler(String wsPath) {
+        this.wsPath = wsPath;
+    }
+
     @Override
     public void handle(RoutingContext event) {
+        if (!event.request().path().equals(wsPath)) {
+            event.next();
+            return;
+        }
+
         if (!WEBSOCKET.equalsIgnoreCase(event.request().getHeader(UPGRADE))) {
             event.next();
             return;
@@ -53,14 +72,17 @@ public class JsonRPCSubProtocolHandler implements Handler<RoutingContext> {
             String decoded = URLDecoder.decode(trimmed, StandardCharsets.UTF_8);
             if (decoded.startsWith(QUARKUS_HTTP_UPGRADE_PREFIX)) {
                 // Format: quarkus-http-upgrade#HeaderName#HeaderValue
-                // Split with limit 3 to preserve '#' characters in the header value
                 String rest = decoded.substring(QUARKUS_HTTP_UPGRADE_PREFIX.length());
                 int hashIdx = rest.indexOf('#');
                 if (hashIdx > 0) {
                     String headerName = rest.substring(0, hashIdx);
-                    String headerValue = rest.substring(hashIdx + 1);
-                    event.request().headers().set(headerName, headerValue);
-                    LOG.debugf("Extracted header from Sec-WebSocket-Protocol: %s", headerName);
+                    if (ALLOWED_HEADERS.contains(headerName.toLowerCase(Locale.ROOT))) {
+                        String headerValue = rest.substring(hashIdx + 1);
+                        event.request().headers().set(headerName, headerValue);
+                        LOG.debugf("Extracted header from Sec-WebSocket-Protocol: %s", headerName);
+                    } else {
+                        LOG.warnf("Rejected disallowed header from Sec-WebSocket-Protocol: %s", headerName);
+                    }
                 }
             } else {
                 realProtocols.add(trimmed);

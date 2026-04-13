@@ -13,7 +13,7 @@ export class JsonRPCClient {
      *
      * @param {Object} options - Configuration options
      * @param {string} [options.token] - Static bearer token
-     * @param {Function} [options.tokenProvider] - Callback returning a token string
+     * @param {Function} [options.tokenProvider] - Callback returning a token string (sync or async)
      */
     static configure(options = {}) {
         JsonRPCClient._config = { ...JsonRPCClient._config, ...options };
@@ -120,7 +120,14 @@ export class JsonRPCClient {
             this._reconnectTimer = null;
         }
 
-        const protocols = this._buildProtocols();
+        Promise.resolve(this._resolveToken()).then(token => {
+            if (this._manuallyDisconnected || this._ws) return;
+            this._openSocket(token);
+        });
+    }
+
+    _openSocket(token) {
+        const protocols = this._buildProtocols(token);
         const ws = protocols.length > 0
             ? new WebSocket(this.url, protocols)
             : new WebSocket(this.url);
@@ -270,8 +277,7 @@ export class JsonRPCClient {
         return this._token;
     }
 
-    _buildProtocols() {
-        const token = this._resolveToken();
+    _buildProtocols(token) {
         if (!token) return [];
         const encoded = encodeURIComponent(
             'quarkus-http-upgrade#Authorization#' + token

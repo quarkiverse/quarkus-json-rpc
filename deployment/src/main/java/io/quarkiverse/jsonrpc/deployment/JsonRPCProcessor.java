@@ -256,9 +256,11 @@ public class JsonRPCProcessor {
     void registerSubProtocolFilter(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
+            HttpRootPathBuildItem httpRootPathBuildItem,
             BuildProducer<FilterBuildItem> filterProducer) {
         if (jsonRPCConfig.webSocket().enabled()) {
-            filterProducer.produce(new FilterBuildItem(recorder.subProtocolHandler(), 300));
+            String resolvedPath = httpRootPathBuildItem.resolvePath(jsonRPCConfig.webSocket().path());
+            filterProducer.produce(new FilterBuildItem(recorder.subProtocolHandler(resolvedPath), 300));
         }
     }
 
