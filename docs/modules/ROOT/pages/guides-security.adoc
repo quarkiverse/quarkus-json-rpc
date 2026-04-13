@@ -177,11 +177,65 @@ quarkus.security.users.embedded.users.admin=secret
 quarkus.security.users.embedded.roles.admin=admin
 ----
 
-Connect with credentials:
+Connect with credentials from a Java or Node.js client (which supports custom headers directly):
 
 [source,javascript]
 ----
-// Browser WebSocket API does not support Authorization headers directly.
-// Use a server-side proxy or the Quarkus Sec-WebSocket-Protocol pattern
-// for browser-based clients. Java/Node.js clients can set headers directly.
+// Node.js — custom headers are supported
+const ws = new WebSocket('ws://localhost:8080/quarkus/json-rpc', {
+    headers: { Authorization: 'Basic ' + btoa('admin:secret') }
+});
 ----
+
+== Browser Authentication
+
+JavaScript's browser `WebSocket` API does not support custom headers like `Authorization`. The extension provides built-in support for the Quarkus `Sec-WebSocket-Protocol` encoding pattern, which encodes credentials into the sub-protocol header during the upgrade handshake. The server-side filter extracts these credentials and sets them as real HTTP headers before Quarkus authentication runs.
+
+=== Using the Generated Proxy
+
+The simplest approach — set global auth defaults and the generated proxy picks them up automatically:
+
+[source,javascript]
+----
+import { JsonRPCClient } from '@quarkiverse/json-rpc';
+import { AdminService } from '@quarkiverse/json-rpc-api';
+
+// Static token
+JsonRPCClient.configure({ token: 'Bearer my-jwt-token' });
+
+// Or use a dynamic provider (sync or async)
+JsonRPCClient.configure({
+    tokenProvider: async () => {
+        const token = await fetchAccessToken();
+        return 'Bearer ' + token;
+    }
+});
+
+// Calls are authenticated automatically
+const result = await AdminService.adminOnly();
+----
+
+=== Using the Client Library Directly
+
+[source,javascript]
+----
+import { JsonRPCClient } from '@quarkiverse/json-rpc';
+
+const client = new JsonRPCClient({
+    token: 'Basic ' + btoa('admin:secret')
+});
+
+const result = await client.call('AdminService#adminOnly');
+----
+
+=== Refreshing Tokens
+
+Use `updateToken()` to update the token and reconnect with new credentials:
+
+[source,javascript]
+----
+// Token refresh — disconnects and reconnects automatically
+client.updateToken('Bearer ' + newAccessToken);
+----
+
+Setting the `token` property directly updates the stored token without reconnecting. The new token takes effect on the next connection (e.g., after a reconnect).

@@ -160,6 +160,32 @@ console.log(client.connected); // true or false
 client.disconnect();
 ----
 
+== Authentication
+
+See the xref:guides-security.adoc#_browser_authentication[Security guide — Browser Authentication] for full details on authenticating from the browser.
+
+=== Global Defaults
+
+Use `JsonRPCClient.configure()` to set defaults for all client instances, including the one created by the generated proxy:
+
+[source,javascript]
+----
+import { JsonRPCClient } from '@quarkiverse/json-rpc';
+
+JsonRPCClient.configure({ token: 'Bearer my-jwt-token' });
+----
+
+=== Per-Instance Auth
+
+Pass `token` or `tokenProvider` in the constructor options. Instance options override global defaults:
+
+[source,javascript]
+----
+const client = new JsonRPCClient({
+    token: 'Basic ' + btoa('admin:secret')
+});
+----
+
 == Constructor Options
 
 [cols="1,1,1,2"]
@@ -190,6 +216,16 @@ client.disconnect();
 | `number`
 | `30000`
 | Maximum reconnect backoff delay in milliseconds
+
+| `token`
+| `string`
+|
+| Auth token sent via `Sec-WebSocket-Protocol` encoding (e.g., `'Bearer my-jwt'` or `'Basic ...'`)
+
+| `tokenProvider`
+| `function`
+|
+| Callback returning a token string (sync or async). Called on each `connect()`
 
 | `onOpen`
 | `function`
