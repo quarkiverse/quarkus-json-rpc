@@ -6,6 +6,19 @@
  */
 
 export class JsonRPCClient {
+    static _config = {};
+
+    /**
+     * Set global defaults for all JsonRPCClient instances.
+     *
+     * @param {Object} options - Configuration options
+     * @param {string} [options.token] - Static bearer token
+     * @param {Function} [options.tokenProvider] - Callback returning a token string
+     */
+    static configure(options = {}) {
+        JsonRPCClient._config = { ...JsonRPCClient._config, ...options };
+    }
+
     _ws = null;
     _url = null;
     _path;
@@ -19,23 +32,28 @@ export class JsonRPCClient {
     _reconnectTimer = null;
     _manuallyDisconnected = false;
     _connected = false;
+    _token = null;
+    _tokenProvider = null;
 
     onOpen = null;
     onClose = null;
     onError = null;
 
     constructor(options = {}) {
-        this._path = options.path || '/quarkus/json-rpc';
-        this._url = options.url || null;
-        this._autoReconnect = options.autoReconnect !== false;
+        const merged = { ...JsonRPCClient._config, ...options };
+        this._path = merged.path || '/quarkus/json-rpc';
+        this._url = merged.url || null;
+        this._autoReconnect = merged.autoReconnect !== false;
         this._reconnectDelay = 1000;
-        this._maxReconnectDelay = options.maxReconnectDelay || 30000;
+        this._maxReconnectDelay = merged.maxReconnectDelay || 30000;
+        this._token = merged.token || null;
+        this._tokenProvider = merged.tokenProvider || null;
 
-        if (options.onOpen) this.onOpen = options.onOpen;
-        if (options.onClose) this.onClose = options.onClose;
-        if (options.onError) this.onError = options.onError;
+        if (merged.onOpen) this.onOpen = merged.onOpen;
+        if (merged.onClose) this.onClose = merged.onClose;
+        if (merged.onError) this.onError = merged.onError;
 
-        if (options.autoConnect !== false) {
+        if (merged.autoConnect !== false) {
             this.connect();
         }
     }
@@ -72,6 +90,28 @@ export class JsonRPCClient {
         return this._connected;
     }
 
+    get token() {
+        return this._token;
+    }
+
+    set token(value) {
+        this._token = value;
+    }
+
+    /**
+     * Update the authentication token and reconnect.
+     *
+     * @param {string} newToken - The new bearer token
+     */
+    updateToken(newToken) {
+        this._token = newToken;
+        if (this._ws) {
+            this.disconnect();
+            this._manuallyDisconnected = false;
+            this.connect();
+        }
+    }
+
     connect() {
         this._manuallyDisconnected = false;
         if (this._ws) return;
@@ -80,7 +120,10 @@ export class JsonRPCClient {
             this._reconnectTimer = null;
         }
 
-        const ws = new WebSocket(this.url);
+        const protocols = this._buildProtocols();
+        const ws = protocols.length > 0
+            ? new WebSocket(this.url, protocols)
+            : new WebSocket(this.url);
         this._ws = ws;
 
         ws.onopen = () => {
@@ -218,6 +261,22 @@ export class JsonRPCClient {
             this._subscriptions.delete(subscriptionId);
             return result;
         });
+    }
+
+    _resolveToken() {
+        if (this._tokenProvider) {
+            return this._tokenProvider();
+        }
+        return this._token;
+    }
+
+    _buildProtocols() {
+        const token = this._resolveToken();
+        if (!token) return [];
+        const encoded = encodeURIComponent(
+            'quarkus-http-upgrade#Authorization#' + token
+        );
+        return ['bearer-token-carrier', encoded];
     }
 
     _send(message) {
