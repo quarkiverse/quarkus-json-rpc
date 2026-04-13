@@ -57,6 +57,7 @@ import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
 import io.quarkus.devui.spi.buildtime.BuildTimeActionBuildItem;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
 import io.quarkus.devui.spi.page.Page;
+import io.quarkus.vertx.http.deployment.FilterBuildItem;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
 import io.quarkus.vertx.http.deployment.spi.GeneratedStaticResourceBuildItem;
@@ -247,6 +248,19 @@ public class JsonRPCProcessor {
                             .routeConfigKey("quarkus.json-rpc.web-socket.path")
                             .handler(recorder.webSocketHandler(beanContainerBuildItem.getValue()))
                             .build());
+        }
+    }
+
+    @BuildStep
+    @Record(ExecutionTime.RUNTIME_INIT)
+    void registerSubProtocolFilter(
+            JsonRPCConfig jsonRPCConfig,
+            JsonRPCRecorder recorder,
+            HttpRootPathBuildItem httpRootPathBuildItem,
+            BuildProducer<FilterBuildItem> filterProducer) {
+        if (jsonRPCConfig.webSocket().enabled()) {
+            String resolvedPath = httpRootPathBuildItem.resolvePath(jsonRPCConfig.webSocket().path());
+            filterProducer.produce(new FilterBuildItem(recorder.subProtocolHandler(resolvedPath), 300));
         }
     }
 

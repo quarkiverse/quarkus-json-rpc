@@ -59,4 +59,8 @@ public class JsonRPCRecorder {
     public Handler<RoutingContext> webSocketHandler(BeanContainer beanContainer) {
         return new JsonRPCWebSocket(beanContainer.beanInstance(JsonRPCRouter.class));
     }
+
+    public Handler<RoutingContext> subProtocolHandler(String wsPath) {
+        return new JsonRPCSubProtocolHandler(wsPath);
+    }
 }
