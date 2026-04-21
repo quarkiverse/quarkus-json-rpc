@@ -103,6 +103,53 @@ public class MyService {
 
 `Flow.Publisher<T>` is also supported and treated identically to `Multi<T>`.
 
+== Virtual Threads
+
+If your application runs on Java 21+, you can use `@RunOnVirtualThread` to execute methods on virtual threads instead of the platform worker thread pool. This gives you the simple blocking programming model with much better scalability — virtual threads are cheap and plentiful, so you won't exhaust a fixed thread pool under load.
+
+[source,java]
+----
+@JsonRPCApi
+public class MyService {
+
+    // Runs on a virtual thread
+    @RunOnVirtualThread
+    public String fetchData(String id) {
+        return blockingHttpClient.get(id); // blocking I/O is fine here
+    }
+
+    // Also works with Uni
+    @RunOnVirtualThread
+    public Uni<String> fetchDataUni(String id) {
+        return Uni.createFrom().item(blockingHttpClient.get(id));
+    }
+}
+----
+
+To use `@RunOnVirtualThread`, add the `quarkus-virtual-threads` extension to your project:
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-virtual-threads</artifactId>
+</dependency>
+----
+
+[cols="2,3"]
+|===
+| Combination | Behavior
+
+| `@RunOnVirtualThread`
+| Executes on a virtual thread
+
+| `@RunOnVirtualThread` + `@Blocking`
+| Executes on a virtual thread (`@RunOnVirtualThread` takes precedence)
+
+| `@RunOnVirtualThread` + `@NonBlocking`
+| **Build error** — these are contradictory
+|===
+
 == Summary
 
 [cols="3,2,2"]
@@ -111,15 +158,15 @@ public class MyService {
 
 | Plain type
 | Blocking
-| `@NonBlocking`
+| `@NonBlocking`, `@RunOnVirtualThread`
 
 | `Uni<T>`
 | Non-blocking
-| `@Blocking`
+| `@Blocking`, `@RunOnVirtualThread`
 
 | `CompletionStage<T>`
 | Non-blocking
-| `@Blocking`
+| `@Blocking`, `@RunOnVirtualThread`
 
 | `Multi<T>`
 | Non-blocking
@@ -130,4 +177,4 @@ public class MyService {
 | —
 |===
 
-NOTE: A method cannot be annotated with both `@Blocking` and `@NonBlocking`. The build will fail if both are present.
+NOTE: A method cannot be annotated with both `@Blocking` and `@NonBlocking`, or both `@RunOnVirtualThread` and `@NonBlocking`. The build will fail if conflicting annotations are present.

@@ -7,8 +7,7 @@ public final class JsonRPCMethod {
     private String methodName;
     private Map<String, Class> params;
 
-    private boolean isExplicitlyBlocking;
-    private boolean isExplicitlyNonBlocking;
+    private ExecutionMode executionMode = ExecutionMode.DEFAULT;
 
     public JsonRPCMethod() {
     }
@@ -47,20 +46,12 @@ public final class JsonRPCMethod {
         this.params = params;
     }
 
-    public boolean getExplicitlyBlocking() {
-        return isExplicitlyBlocking;
+    public ExecutionMode getExecutionMode() {
+        return executionMode;
     }
 
-    public void setExplicitlyBlocking(boolean blocking) {
-        isExplicitlyBlocking = blocking;
-    }
-
-    public boolean getExplicitlyNonBlocking() {
-        return isExplicitlyNonBlocking;
-    }
-
-    public void setExplicitlyNonBlocking(boolean nonblocking) {
-        isExplicitlyNonBlocking = nonblocking;
+    public void setExecutionMode(ExecutionMode executionMode) {
+        this.executionMode = executionMode;
     }
 
     @Override
