@@ -62,7 +62,7 @@ Build-time discovery::
 All `@JsonRPCApi` classes are found at build time via Jandex — no runtime classpath scanning, full ahead-of-time compilation and GraalVM native image support.
 
 Reactive and blocking::
-Return plain types for blocking execution, `Uni<T>` for async, or `Multi<T>` for streaming subscriptions. Fine-tune with `@Blocking` and `@NonBlocking`.
+Return plain types for blocking execution, `Uni<T>` for async, or `Multi<T>` for streaming subscriptions. Fine-tune with `@Blocking`, `@NonBlocking`, or `@RunOnVirtualThread`.
 
 Server push::
 Inject `JsonRPCBroadcaster` to send notifications to all connected clients or target a specific session.

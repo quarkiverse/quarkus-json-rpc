@@ -37,6 +37,7 @@ import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCSessions;
 import io.quarkiverse.jsonrpc.runtime.Keys;
 import io.quarkiverse.jsonrpc.runtime.devui.JsonRPCDevUIService;
+import io.quarkiverse.jsonrpc.runtime.model.ExecutionMode;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
@@ -63,6 +64,7 @@ import io.quarkus.vertx.http.deployment.RouteBuildItem;
 import io.quarkus.vertx.http.deployment.spi.GeneratedStaticResourceBuildItem;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 
 public class JsonRPCProcessor {
     private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(JsonRPCProcessor.class);
@@ -126,6 +128,39 @@ public class JsonRPCProcessor {
                                         "Method " + classInfo.name() + "." + method.name()
                                                 + " cannot be annotated with both @Blocking and @NonBlocking");
                             }
+                            if (method.hasAnnotation(RunOnVirtualThread.class)
+                                    && method.hasAnnotation(NonBlocking.class)) {
+                                throw new IllegalArgumentException(
+                                        "Method " + classInfo.name() + "." + method.name()
+                                                + " cannot be annotated with both @RunOnVirtualThread and @NonBlocking");
+                            }
+                            if (method.hasAnnotation(RunOnVirtualThread.class)) {
+                                String returnTypeName = method.returnType().name().toString();
+                                if (returnTypeName.equals("io.smallrye.mutiny.Multi")
+                                        || returnTypeName.equals("java.util.concurrent.Flow$Publisher")) {
+                                    throw new IllegalArgumentException(
+                                            "Method " + classInfo.name() + "." + method.name()
+                                                    + " cannot use @RunOnVirtualThread with a streaming return type"
+                                                    + " (Multi/Flow.Publisher)");
+                                }
+                            }
+                            if (method.hasAnnotation(RunOnVirtualThread.class)
+                                    && method.hasAnnotation(Blocking.class)) {
+                                LOG.warnf("Method %s.%s is annotated with both @RunOnVirtualThread and @Blocking."
+                                        + " @Blocking is redundant and will be ignored.",
+                                        classInfo.name(), method.name());
+                            }
+
+                            ExecutionMode executionMode;
+                            if (method.hasAnnotation(RunOnVirtualThread.class)) {
+                                executionMode = ExecutionMode.VIRTUAL_THREAD;
+                            } else if (method.hasAnnotation(Blocking.class)) {
+                                executionMode = ExecutionMode.BLOCKING;
+                            } else if (method.hasAnnotation(NonBlocking.class)) {
+                                executionMode = ExecutionMode.NON_BLOCKING;
+                            } else {
+                                executionMode = ExecutionMode.DEFAULT;
+                            }
 
                             String fullName = null;
 
@@ -143,17 +178,13 @@ public class JsonRPCProcessor {
                                 JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName,
                                         Keys.createOrderedParameterKey(scope, method.name(), method.parametersCount()));
                                 JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), params);
-                                jsonRpcMethod.setExplicitlyBlocking(method.hasAnnotation(Blocking.class));
-                                jsonRpcMethod
-                                        .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
+                                jsonRpcMethod.setExecutionMode(executionMode);
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
                             } else {
                                 fullName = Keys.createKey(scope, method.name());
                                 JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
                                 JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), null);
-                                jsonRpcMethod.setExplicitlyBlocking(method.hasAnnotation(Blocking.class));
-                                jsonRpcMethod
-                                        .setExplicitlyNonBlocking(method.hasAnnotation(NonBlocking.class));
+                                jsonRpcMethod.setExecutionMode(executionMode);
                                 methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
                             }
 
@@ -439,9 +470,11 @@ public class JsonRPCProcessor {
             }
 
             String execMode = "blocking (default)";
-            if (method.getExplicitlyBlocking()) {
+            if (method.getExecutionMode() == ExecutionMode.VIRTUAL_THREAD) {
+                execMode = "virtual thread";
+            } else if (method.getExecutionMode() == ExecutionMode.BLOCKING) {
                 execMode = "blocking";
-            } else if (method.getExplicitlyNonBlocking()) {
+            } else if (method.getExecutionMode() == ExecutionMode.NON_BLOCKING) {
                 execMode = "non-blocking";
             } else if (isReactiveReturnType(method.getClazz(), method.getMethodName())) {
                 execMode = "non-blocking (default)";

@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.logging.Logger;
 
+import io.quarkiverse.jsonrpc.runtime.model.ExecutionMode;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
@@ -91,7 +92,7 @@ public class JsonRPCRouter {
                     javaMethod = providerInstance.getClass().getMethod(jsonRpcMethod.getMethodName());
                 }
                 ReflectionInfo reflectionInfo = new ReflectionInfo(jsonRpcMethod.getClazz(), providerInstance, javaMethod,
-                        params, jsonRpcMethod.getExplicitlyBlocking(), jsonRpcMethod.getExplicitlyNonBlocking());
+                        params, jsonRpcMethod.getExecutionMode());
                 jsonRpcToJava.put(methodName.toString(), reflectionInfo);
                 if (methodName.hasOrderedParameterKey()) {
                     orderedParameterKeyToNamedKey.put(methodName.getOrderedParameterKey(), methodName.toString());
@@ -147,46 +148,45 @@ public class JsonRPCRouter {
                 activated = true;
             }
             setSecurityIdentity(socket);
+            ExecutionMode mode = info.getExecutionMode();
             if (info.isReturningUni()) {
-                if (info.isExplicitlyBlocking()) {
+                if (mode == ExecutionMode.BLOCKING || mode == ExecutionMode.VIRTUAL_THREAD) {
                     SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
                     final Promise<?> result = Promise.promise();
-                    // We need some make sure that we call given the context
                     Callable<Object> contextualCallable = threadContext.contextualCallable(() -> {
                         Object resultFromMethodCall = info.method.invoke(target, args);
                         Uni<?> uniFromMethodCall = (Uni<?>) resultFromMethodCall;
                         return uniFromMethodCall.subscribeAsCompletionStage().get();
                     });
-                    vc.executeBlocking(contextualCallable).onComplete((Handler<AsyncResult<Object>>) result);
+                    dispatchBlocking(vc, contextualCallable, result, mode);
                     return Uni.createFrom().completionStage(result.future().toCompletionStage());
                 } else {
                     return (Uni<?>) info.method.invoke(target, args);
                 }
             } else if (info.isReturningCompletionStage()) {
-                if (info.isExplicitlyBlocking()) {
+                if (mode == ExecutionMode.BLOCKING || mode == ExecutionMode.VIRTUAL_THREAD) {
                     SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
                     final Promise<?> result = Promise.promise();
                     Callable<Object> contextualCallable = threadContext.contextualCallable(() -> {
                         CompletionStage<?> cs = (CompletionStage<?>) info.method.invoke(target, args);
                         return cs.toCompletableFuture().get();
                     });
-                    vc.executeBlocking(contextualCallable).onComplete((Handler<AsyncResult<Object>>) result);
+                    dispatchBlocking(vc, contextualCallable, result, mode);
                     return Uni.createFrom().completionStage(result.future().toCompletionStage());
                 } else {
                     CompletionStage<?> cs = (CompletionStage<?>) info.method.invoke(target, args);
                     return Uni.createFrom().completionStage(cs);
                 }
             } else {
-                if (info.isExplicitlyNonBlocking()) {
+                if (mode == ExecutionMode.NON_BLOCKING) {
                     return Uni.createFrom().item(Unchecked.supplier(() -> info.method.invoke(target, args)));
                 } else {
                     SmallRyeThreadContext threadContext = Arc.container().select(SmallRyeThreadContext.class).get();
                     final Promise<?> result = Promise.promise();
-                    // We need some make sure that we call given the context
                     Callable<Object> contextualCallable = threadContext.contextualCallable(() -> {
                         return info.method.invoke(target, args);
                     });
-                    vc.executeBlocking(contextualCallable).onComplete((Handler<AsyncResult<Object>>) result);
+                    dispatchBlocking(vc, contextualCallable, result, mode);
                     return Uni.createFrom().completionStage(result.future().toCompletionStage());
                 }
             }
@@ -196,6 +196,16 @@ public class JsonRPCRouter {
             if (activated) {
                 currentManagedContext.deactivate();
             }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void dispatchBlocking(Context vc, Callable<Object> callable, Promise<?> result,
+            ExecutionMode mode) {
+        if (mode == ExecutionMode.VIRTUAL_THREAD) {
+            VirtualThreadSupport.executeBlocking(callable, result);
+        } else {
+            vc.executeBlocking(callable).onComplete((Handler<AsyncResult<Object>>) result);
         }
     }
 

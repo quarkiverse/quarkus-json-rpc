@@ -123,14 +123,19 @@ public class JsonRPCDevUIService {
     }
 
     private String getExecutionMode(ReflectionInfo info) {
-        if (info.isExplicitlyBlocking()) {
-            return "blocking";
-        } else if (info.isExplicitlyNonBlocking()) {
-            return "non-blocking";
-        } else if (info.isReturningUni() || info.isReturningMulti()
-                || info.isReturningCompletionStage() || info.isReturningFlowPublisher()) {
-            return "non-blocking (default)";
+        switch (info.getExecutionMode()) {
+            case BLOCKING:
+                return "blocking";
+            case NON_BLOCKING:
+                return "non-blocking";
+            case VIRTUAL_THREAD:
+                return "virtual thread";
+            default:
+                if (info.isReturningUni() || info.isReturningMulti()
+                        || info.isReturningCompletionStage() || info.isReturningFlowPublisher()) {
+                    return "non-blocking (default)";
+                }
+                return "blocking (default)";
         }
-        return "blocking (default)";
     }
 }

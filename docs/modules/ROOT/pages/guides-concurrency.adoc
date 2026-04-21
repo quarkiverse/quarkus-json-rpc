@@ -64,17 +64,23 @@ The extension runs on the Vert.x event loop and dispatches method calls based on
 | Plain return type + `@NonBlocking`
 | Event loop — must return quickly
 
+| Plain return type + `@RunOnVirtualThread`
+| Virtual thread (Java 21+) — lightweight, ideal for blocking I/O at scale
+
 | `Uni<T>` / `CompletionStage<T>` (default)
 | Event loop — non-blocking, ideal for reactive I/O
 
 | `Uni<T>` + `@Blocking`
 | Worker thread — wrapped in `vertx.executeBlocking()`
 
+| `Uni<T>` + `@RunOnVirtualThread`
+| Virtual thread (Java 21+)
+
 | `Multi<T>` / `Flow.Publisher<T>`
 | Event loop — reactive streaming
 |===
 
-Because blocking calls are offloaded to a worker pool and async calls stay on the event loop, the server can handle many concurrent connections without threads becoming a bottleneck. See xref:guides-execution-modes.adoc[Execution Modes & Return Types] for full details.
+Because blocking calls are offloaded to a worker pool (or virtual threads), and async calls stay on the event loop, the server can handle many concurrent connections without threads becoming a bottleneck. See xref:guides-execution-modes.adoc[Execution Modes & Return Types] for full details.
 
 == Tuning for Production
 
