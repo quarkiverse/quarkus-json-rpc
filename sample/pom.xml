@@ -32,7 +32,7 @@
         <dependency>
             <groupId>org.mvnpm</groupId>
             <artifactId>lit</artifactId>
-            <version>3.3.2</version>
+            <version>3.3.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
