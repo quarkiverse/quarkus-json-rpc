@@ -57,8 +57,7 @@ The extension uses Jackson for deserialization, so any type that Jackson can han
 - **Primitives and wrappers**: `int`, `long`, `boolean`, `double`, `String`, etc.
 - **Java time types**: `LocalDateTime`, `LocalDate`, `Instant`, etc.
 - **UUID**: `java.util.UUID`
-- **Collections**: `List<T>`, `Set<T>`, `Map<K,V>`
-- **Arrays**: `T[]`
+- **Collections, Maps, Optionals, and Arrays**: `List<T>`, `Set<T>`, `Map<K,V>`, `Optional<T>`, `T[]` — see xref:guides-collections.adoc[Collections, Maps & Optionals] for details and examples
 - **POJOs**: any class with a default constructor and getters/setters
 
 == Complex Object Parameters

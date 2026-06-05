@@ -1,5 +1,5 @@
 import {LitElement, html, css} from 'lit';
-import {client, HelloResource, PojoResource, SecuredResource, scoped} from '@quarkiverse/json-rpc-api';
+import {client, HelloResource, PojoResource, CollectionResource, SecuredResource, scoped} from '@quarkiverse/json-rpc-api';
 
 class JsonRpcApp extends LitElement {
 
@@ -334,6 +334,20 @@ class JsonRpcApp extends LitElement {
             ['scoped.pojo()', () => scoped.pojo()],
         ];
 
+        const collectionCalls = [
+            ['CollectionResource.listOfStrings()', () => CollectionResource.listOfStrings()],
+            ['CollectionResource.listOfPojos()', () => CollectionResource.listOfPojos()],
+            ['CollectionResource.mapOfStrings()', () => CollectionResource.mapOfStrings()],
+            ['CollectionResource.mapOfPojos()', () => CollectionResource.mapOfPojos()],
+            ['CollectionResource.setOfStrings()', () => CollectionResource.setOfStrings()],
+            ['CollectionResource.optionalPresent()', () => CollectionResource.optionalPresent()],
+            ['CollectionResource.optionalEmpty()', () => CollectionResource.optionalEmpty()],
+            ['CollectionResource.joinStrings({items})', () => CollectionResource.joinStrings({items: ['alpha', 'beta', 'gamma']})],
+            ['CollectionResource.lookupInMap({data, key})', () => CollectionResource.lookupInMap({data: {host: 'localhost', port: '8080'}, key: 'host'})],
+            ['CollectionResource.withDefault({name, title})', () => CollectionResource.withDefault({name: 'Alice', title: 'Dr.'})],
+            ['CollectionResource.withDefault({name}) no title', () => CollectionResource.withDefault({name: 'Alice', title: null})],
+        ];
+
         const securedCalls = [
             ['adminSecret() @RolesAllowed("admin")', () => SecuredResource.adminSecret()],
             ['adminGreeting({name}) @RolesAllowed("admin")', () => SecuredResource.adminGreeting({name: 'Boss'})],
@@ -360,6 +374,15 @@ class JsonRpcApp extends LitElement {
                     <label>Click a method to invoke it</label>
                     <div class="quick-methods">
                         ${calls.map(([label, fn]) =>
+                            html`<button ?disabled=${!this._connected}
+                                         @click=${() => this._call(label, fn)}>${label}</button>`
+                        )}
+                    </div>
+
+                    <h2>Collections, Maps & Optionals</h2>
+                    <label>Methods returning or accepting collections, maps, and optionals</label>
+                    <div class="quick-methods">
+                        ${collectionCalls.map(([label, fn]) =>
                             html`<button ?disabled=${!this._connected}
                                          @click=${() => this._call(label, fn)}>${label}</button>`
                         )}

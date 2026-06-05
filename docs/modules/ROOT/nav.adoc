@@ -4,6 +4,7 @@
 ** xref:guides-creating-api.adoc[Creating an API]
 ** xref:guides-execution-modes.adoc[Execution Modes & Return Types]
 ** xref:guides-parameters.adoc[Parameters]
+** xref:guides-collections.adoc[Collections, Maps & Optionals]
 ** xref:guides-streaming.adoc[Streaming with Multi]
 ** xref:guides-broadcasting.adoc[Broadcasting]
 ** xref:guides-security.adoc[Security]
