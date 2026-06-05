@@ -10,6 +10,10 @@
     <artifactId>quarkus-json-rpc-deployment</artifactId>
     <name>Quarkus Json Rpc - Deployment</name>
 
+    <properties>
+        <quarkus-rag.guide>${project.basedir}/../docs/modules/ROOT/pages/index.adoc</quarkus-rag.guide>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.quarkus</groupId>
