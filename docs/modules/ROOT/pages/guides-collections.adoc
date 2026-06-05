@@ -214,6 +214,51 @@ public class BatchService {
 }
 ----
 
+=== Optional parameters
+
+`Optional<T>` can be used as a method parameter. Pass the value directly (or `null` for empty):
+
+[source,java]
+----
+@JsonRPCApi
+public class BatchService {
+
+    public String withDefault(String name, Optional<String> title) {
+        return title.map(t -> t + " " + name).orElse(name);
+    }
+}
+----
+
+With a value present:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "BatchService#withDefault",
+  "params": {
+    "name": "Alice",
+    "title": "Dr."
+  }
+}
+----
+
+With an empty optional (pass `null`):
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "BatchService#withDefault",
+  "params": {
+    "name": "Alice",
+    "title": null
+  }
+}
+----
+
 === Array parameters
 
 [source,java]
