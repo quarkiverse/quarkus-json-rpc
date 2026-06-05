@@ -1,0 +1,261 @@
+= Collections, Maps & Optionals
+
+include::./includes/attributes.adoc[]
+
+The extension fully supports Java collection types — `List`, `Set`, `Map`, `Optional`, and arrays — as both return types and method parameters. Generic type information is preserved at runtime, so Jackson deserializes parameterized types like `List<Pojo>` or `Map<String, Pojo>` correctly.
+
+== Returning Collections
+
+Methods can return `List<T>`, `Set<T>`, or `T[]`. The result is serialized as a JSON array:
+
+[source,java]
+----
+@JsonRPCApi
+public class InventoryService {
+
+    public List<String> categories() {
+        return List.of("electronics", "books", "clothing");
+    }
+
+    public List<Product> featured() {
+        return List.of(
+            new Product("Laptop", 999.99),
+            new Product("Novel", 12.99)
+        );
+    }
+
+    public Set<String> tags() {
+        return Set.of("sale", "new", "popular");
+    }
+}
+----
+
+Response for `InventoryService#categories`:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": ["electronics", "books", "clothing"]
+}
+----
+
+Response for `InventoryService#featured`:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": [
+    { "name": "Laptop", "price": 999.99 },
+    { "name": "Novel", "price": 12.99 }
+  ]
+}
+----
+
+== Returning Maps
+
+Methods can return `Map<K, V>`. The result is serialized as a JSON object:
+
+[source,java]
+----
+@JsonRPCApi
+public class ConfigService {
+
+    public Map<String, String> settings() {
+        return Map.of(
+            "theme", "dark",
+            "language", "en"
+        );
+    }
+
+    public Map<String, Product> catalog() {
+        Map<String, Product> map = new LinkedHashMap<>();
+        map.put("laptop", new Product("Laptop", 999.99));
+        map.put("novel", new Product("Novel", 12.99));
+        return map;
+    }
+}
+----
+
+Response for `ConfigService#settings`:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "theme": "dark",
+    "language": "en"
+  }
+}
+----
+
+Response for `ConfigService#catalog`:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": {
+    "laptop": { "name": "Laptop", "price": 999.99 },
+    "novel": { "name": "Novel", "price": 12.99 }
+  }
+}
+----
+
+== Returning Optionals
+
+Methods can return `Optional<T>`. A present value is unwrapped and serialized normally; an empty optional results in `null`:
+
+[source,java]
+----
+@JsonRPCApi
+public class LookupService {
+
+    public Optional<String> findNickname(String username) {
+        return nicknameStore.get(username);
+    }
+}
+----
+
+When the value is present:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "Johnny"
+}
+----
+
+When the value is empty:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+----
+
+== Collections as Parameters
+
+Collection types work as method parameters too. The extension preserves generic type information so Jackson deserializes `List<Pojo>`, `Map<String, Pojo>`, etc. correctly.
+
+=== List parameters
+
+[source,java]
+----
+@JsonRPCApi
+public class BatchService {
+
+    public String joinNames(List<String> names) {
+        return String.join(", ", names);
+    }
+}
+----
+
+Using named parameters:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "BatchService#joinNames",
+  "params": {
+    "names": ["Alice", "Bob", "Charlie"]
+  }
+}
+----
+
+Using positional parameters:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "BatchService#joinNames",
+  "params": [["Alice", "Bob", "Charlie"]]
+}
+----
+
+=== Map parameters
+
+[source,java]
+----
+@JsonRPCApi
+public class BatchService {
+
+    public String lookup(Map<String, String> data, String key) {
+        return data.get(key);
+    }
+}
+----
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "BatchService#lookup",
+  "params": {
+    "data": { "host": "localhost", "port": "8080" },
+    "key": "host"
+  }
+}
+----
+
+=== Array parameters
+
+[source,java]
+----
+@JsonRPCApi
+public class BatchService {
+
+    public int count(String[] items) {
+        return items.length;
+    }
+}
+----
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "BatchService#count",
+  "params": {
+    "items": ["a", "b", "c"]
+  }
+}
+----
+
+== Async Variants
+
+All collection and map types work with `Uni<T>` for async execution:
+
+[source,java]
+----
+@JsonRPCApi
+public class AsyncInventoryService {
+
+    public Uni<List<String>> categories() {
+        return categoryRepository.listAll();
+    }
+
+    public Uni<Map<String, Product>> catalog() {
+        return catalogRepository.loadCatalog();
+    }
+}
+----
+
+These follow the same execution semantics described in xref:guides-execution-modes.adoc[Execution Modes & Return Types].
