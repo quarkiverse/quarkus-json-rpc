@@ -14,7 +14,7 @@ public class JsClientConflictingReturnTypeTest {
             .withApplicationRoot(root -> {
                 root.addClasses(ConflictingReturnTypeResource.class);
             })
-            .overrideConfigKey("quarkus.json-rpc.client.enabled", "true")
+            .overrideConfigKey("quarkus.json-rpc.js-client.enabled", "true")
             .assertException(t -> {
                 Assertions.assertTrue(t instanceof IllegalArgumentException,
                         "Expected IllegalArgumentException but got: " + t.getClass().getName());

@@ -14,7 +14,7 @@ public class WebDependencyLocatorTest extends JsClientTestBase {
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class);
             })
-            .overrideConfigKey("quarkus.json-rpc.client.enabled", "true");
+            .overrideConfigKey("quarkus.json-rpc.js-client.enabled", "true");
 
     @Test
     public void testImportMapContainsJsonRpcMappings() throws Exception {
