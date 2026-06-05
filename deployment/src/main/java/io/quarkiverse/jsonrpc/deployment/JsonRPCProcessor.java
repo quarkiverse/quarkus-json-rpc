@@ -304,7 +304,7 @@ public class JsonRPCProcessor {
             JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
             BuildProducer<GeneratedStaticResourceBuildItem> staticResourceProducer) {
 
-        if (!jsonRPCConfig.client().enabled()) {
+        if (!jsonRPCConfig.jsClient().enabled()) {
             return;
         }
 
@@ -397,7 +397,7 @@ public class JsonRPCProcessor {
             JsonRPCConfig jsonRPCConfig,
             CurateOutcomeBuildItem curateOutcome,
             BuildProducer<WebDependencyJarBuildItem> webDependencyProducer) {
-        if (jsonRPCConfig.client().enabled()) {
+        if (jsonRPCConfig.jsClient().enabled()) {
             curateOutcome.getApplicationModel().getDependencies().stream()
                     .filter(dep -> dep.getGroupId().equals("io.quarkiverse.json-rpc")
                             && dep.getArtifactId().equals("quarkus-json-rpc"))

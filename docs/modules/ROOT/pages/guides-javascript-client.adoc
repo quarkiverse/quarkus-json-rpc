@@ -2,7 +2,7 @@
 
 include::./includes/attributes.adoc[]
 
-When `quarkus.json-rpc.client.enabled` is set to `true`, the extension generates a JavaScript client library and a typed proxy module as web resources. These can be imported directly from frameworks like https://docs.quarkiverse.io/quarkus-web-bundler/dev/index.html[Quarkus Web Bundler] or https://quarkus.io/guides/web-dependency-locator[Web Dependency Locator] via the standard https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap[import map] convention.
+When `quarkus.json-rpc.js-client.enabled` is set to `true`, the extension generates a JavaScript client library and a typed proxy module as web resources. These can be imported directly from frameworks like https://docs.quarkiverse.io/quarkus-web-bundler/dev/index.html[Quarkus Web Bundler] or https://quarkus.io/guides/web-dependency-locator[Web Dependency Locator] via the standard https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script/type/importmap[import map] convention.
 
 == Enabling the Client
 
@@ -10,7 +10,7 @@ Add to `application.properties`:
 
 [source,properties]
 ----
-quarkus.json-rpc.client.enabled=true
+quarkus.json-rpc.js-client.enabled=true
 ----
 
 This generates three resources at build time:

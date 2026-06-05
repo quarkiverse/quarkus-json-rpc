@@ -21,5 +21,6 @@ public interface JsonRPCConfig {
     /**
      * Configuration properties for the JavaScript client proxy generation
      */
-    JsonRPCClientConfig client();
+    @WithName("js-client")
+    JsonRPCClientConfig jsClient();
 }

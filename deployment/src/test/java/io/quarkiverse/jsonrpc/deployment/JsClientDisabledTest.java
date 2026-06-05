@@ -14,7 +14,7 @@ public class JsClientDisabledTest extends JsClientTestBase {
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class);
             })
-            .overrideConfigKey("quarkus.json-rpc.client.enabled", "false");
+            .overrideConfigKey("quarkus.json-rpc.js-client.enabled", "false");
 
     @Test
     public void testClientLibraryNotServedWhenDisabled() throws Exception {
