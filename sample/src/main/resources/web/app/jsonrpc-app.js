@@ -1,4 +1,5 @@
 import {LitElement, html, css} from 'lit';
+import {client, HelloResource, PojoResource, SecuredResource, scoped} from '@quarkiverse/json-rpc-api';
 
 class JsonRpcApp extends LitElement {
 
@@ -6,7 +7,6 @@ class JsonRpcApp extends LitElement {
         _connected: {state: true},
         _messages: {state: true},
         _subscriptions: {state: true},
-        _ready: {state: true},
     };
 
     static styles = css`
@@ -209,23 +209,12 @@ class JsonRpcApp extends LitElement {
         this._connected = false;
         this._messages = [];
         this._subscriptions = new Map();
-        this._ready = false;
-        this._rpc = null;
-    }
-
-    async connectedCallback() {
-        super.connectedCallback();
-        // Load the generated JSON-RPC proxy at runtime (dynamic path prevents esbuild resolution)
-        const apiPath = ['/_static/quarkus-json-rpc-api', 'jsonrpc-api.js'].join('/');
-        const rpc = await import(apiPath);
-        this._rpc = rpc;
-        rpc.client.onOpen = () => { this._connected = true; };
-        rpc.client.onClose = () => {
+        client.onOpen = () => { this._connected = true; };
+        client.onClose = () => {
             this._connected = false;
             this._subscriptions = new Map();
         };
-        this._connected = rpc.client.connected;
-        this._ready = true;
+        this._connected = client.connected;
     }
 
     _addMessage(type, data) {
@@ -330,12 +319,6 @@ class JsonRpcApp extends LitElement {
     }
 
     render() {
-        if (!this._ready) {
-            return html`<h1>Loading...</h1>`;
-        }
-
-        const {HelloResource, PojoResource, SecuredResource, scoped} = this._rpc;
-
         const calls = [
             ['HelloResource.hello()', () => HelloResource.hello()],
             ['HelloResource.hello({name})', () => HelloResource.hello({name: 'World'})],

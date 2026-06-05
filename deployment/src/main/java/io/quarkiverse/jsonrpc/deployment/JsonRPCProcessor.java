@@ -52,8 +52,8 @@ import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
-import io.quarkus.deployment.builditem.GeneratedResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
+import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
 import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
 import io.quarkus.devui.spi.buildtime.BuildTimeActionBuildItem;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
@@ -62,6 +62,7 @@ import io.quarkus.vertx.http.deployment.FilterBuildItem;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
 import io.quarkus.vertx.http.deployment.spi.GeneratedStaticResourceBuildItem;
+import io.quarkus.vertx.http.deployment.spi.WebDependencyJarBuildItem;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -301,8 +302,7 @@ public class JsonRPCProcessor {
     void generateJsClient(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
-            BuildProducer<GeneratedStaticResourceBuildItem> staticResourceProducer,
-            BuildProducer<GeneratedResourceBuildItem> generatedResourceProducer) {
+            BuildProducer<GeneratedStaticResourceBuildItem> staticResourceProducer) {
 
         if (!jsonRPCConfig.client().enabled()) {
             return;
@@ -329,13 +329,6 @@ public class JsonRPCProcessor {
                 new GeneratedStaticResourceBuildItem(
                         "/_static/quarkus-json-rpc-api/jsonrpc-api.js",
                         proxyJs.getBytes(StandardCharsets.UTF_8)));
-
-        // 3. Generate importmap.json for web-dependency-locator
-        String importmap = generateImportMap();
-        generatedResourceProducer.produce(
-                new GeneratedResourceBuildItem(
-                        "META-INF/importmap.json",
-                        importmap.getBytes(StandardCharsets.UTF_8)));
     }
 
     private String generateTypedProxy(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, String wsPath) {
@@ -399,14 +392,24 @@ public class JsonRPCProcessor {
         return js.toString();
     }
 
-    private String generateImportMap() {
-        return "{\n"
-                + "  \"imports\" : {\n"
-                + "    \"@quarkiverse/json-rpc\" : \"/_static/quarkus-json-rpc/jsonrpc-client.js\",\n"
-                + "    \"@quarkiverse/json-rpc/\" : \"/_static/quarkus-json-rpc/\",\n"
-                + "    \"@quarkiverse/json-rpc-api\" : \"/_static/quarkus-json-rpc-api/jsonrpc-api.js\"\n"
-                + "  }\n"
-                + "}\n";
+    @BuildStep
+    void registerWebDependency(
+            JsonRPCConfig jsonRPCConfig,
+            CurateOutcomeBuildItem curateOutcome,
+            BuildProducer<WebDependencyJarBuildItem> webDependencyProducer) {
+        if (jsonRPCConfig.client().enabled()) {
+            curateOutcome.getApplicationModel().getDependencies().stream()
+                    .filter(dep -> dep.getGroupId().equals("io.quarkiverse.json-rpc")
+                            && dep.getArtifactId().equals("quarkus-json-rpc"))
+                    .findFirst()
+                    .ifPresent(dep -> webDependencyProducer.produce(new WebDependencyJarBuildItem(
+                            dep.getKey(),
+                            dep.getResolvedPaths().getSinglePath(),
+                            Map.of(
+                                    "@quarkiverse/json-rpc", "/_static/quarkus-json-rpc/jsonrpc-client.js",
+                                    "@quarkiverse/json-rpc/", "/_static/quarkus-json-rpc/",
+                                    "@quarkiverse/json-rpc-api", "/_static/quarkus-json-rpc-api/jsonrpc-api.js"))));
+        }
     }
 
     private static final Set<String> STREAMING_TYPES = Set.of(
