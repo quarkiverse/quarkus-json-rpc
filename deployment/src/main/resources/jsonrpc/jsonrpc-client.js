@@ -271,10 +271,11 @@ export class JsonRPCClient {
     }
 
     _resolveToken() {
-        if (this._tokenProvider) {
-            return this._tokenProvider();
+        const provider = this._tokenProvider || JsonRPCClient._config.tokenProvider;
+        if (provider) {
+            return provider();
         }
-        return this._token;
+        return this._token || JsonRPCClient._config.token || null;
     }
 
     _buildProtocols(token) {
