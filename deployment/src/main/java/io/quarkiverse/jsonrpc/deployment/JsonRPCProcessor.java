@@ -334,7 +334,7 @@ public class JsonRPCProcessor {
 
     private String generateTypedProxy(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, String wsPath) {
         StringBuilder js = new StringBuilder();
-        js.append("import { JsonRPCClient } from '/_static/quarkus-json-rpc/jsonrpc-client.js';\n\n");
+        js.append("import { JsonRPCClient } from '@quarkiverse/json-rpc';\n\n");
         js.append("export const client = new JsonRPCClient({ path: '").append(escapeJsString(wsPath)).append("' });\n\n");
 
         // Group methods by scope and method name (sorted for deterministic output).
