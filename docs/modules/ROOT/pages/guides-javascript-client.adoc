@@ -13,20 +13,19 @@ Add to `application.properties`:
 quarkus.json-rpc.js-client.enabled=true
 ----
 
-This generates three resources at build time:
+This generates two resources at build time and registers import mappings so that frameworks like Web Bundler and Web Dependency Locator can resolve bare import specifiers automatically:
 
-[cols="1,2"]
+[cols="1,1,2"]
 |===
-| Resource | Purpose
+| Resource | Import specifier | Purpose
 
 | `_static/quarkus-json-rpc/jsonrpc-client.js`
+| `@quarkiverse/json-rpc`
 | Reusable WebSocket client library
 
 | `_static/quarkus-json-rpc-api/jsonrpc-api.js`
+| `@quarkiverse/json-rpc-api`
 | Typed proxy with exports for each `@JsonRPCApi` scope
-
-| `META-INF/importmap.json`
-| Import map for module resolution
 |===
 
 == Using the Typed Proxy
