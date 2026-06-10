@@ -31,8 +31,8 @@ public class JsClientGenerationTest extends JsClientTestBase {
     @Test
     public void testTypedProxyIsServed() throws Exception {
         String body = httpGet("/_static/quarkus-json-rpc-api/jsonrpc-api.js");
-        Assertions.assertTrue(body.contains("import { JsonRPCClient } from '/_static/quarkus-json-rpc/jsonrpc-client.js'"),
-                "Proxy should import from absolute path");
+        Assertions.assertTrue(body.contains("import { JsonRPCClient } from '@quarkiverse/json-rpc'"),
+                "Proxy should import using bare import specifier");
         Assertions.assertTrue(body.contains("export const client = new JsonRPCClient({ path: '/quarkus/json-rpc' })"),
                 "Proxy should export a client instance with configured path");
     }
