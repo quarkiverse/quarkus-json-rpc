@@ -1,0 +1,44 @@
+= Metrics
+
+include::./includes/attributes.adoc[]
+
+When the `quarkus-micrometer` extension is present, JSON-RPC automatically records metrics for every method invocation and tracks active WebSocket connections. No configuration or code changes are needed.
+
+== Setup
+
+Add the Micrometer extension (with a registry of your choice):
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
+</dependency>
+----
+
+That's it — metrics are enabled automatically.
+
+== Available Metrics
+
+[cols="1,1,2"]
+|===
+| Metric | Type | Description
+
+| `jsonrpc.requests`
+| Timer
+| Duration and count of JSON-RPC method invocations. Tagged with `method` (e.g. `HelloResource#hello`) and `outcome` (`success` or `error`).
+
+| `jsonrpc.active.connections`
+| Gauge
+| Current number of open WebSocket connections.
+|===
+
+== Example: Prometheus Output
+
+After calling `HelloResource#hello` a few times, the Prometheus endpoint (`/q/metrics`) will include:
+
+----
+jsonrpc_requests_seconds_count{method="HelloResource#hello",outcome="success"} 5.0
+jsonrpc_requests_seconds_sum{method="HelloResource#hello",outcome="success"} 0.042
+jsonrpc_active_connections 2.0
+----
