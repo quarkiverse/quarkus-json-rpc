@@ -83,7 +83,7 @@ public class OrderService {
 All JSON-RPC methods are served through a single WebSocket endpoint. By default, this is:
 
 ----
-ws://localhost:8080/quarkus/json-rpc
+ws://localhost:8080/json-rpc
 ----
 
 See xref:reference-configuration.adoc[Configuration Reference] to change the path.

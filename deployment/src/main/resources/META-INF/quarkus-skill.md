@@ -51,5 +51,5 @@ public class GreetingService {
 ### Testing
 
 - Use `QuarkusUnitTest` with Vert.x `WebSocketClient` to test JSON-RPC methods.
-- Connect to the WebSocket endpoint at the configured path (default: `/quarkus/json-rpc`).
+- Connect to the WebSocket endpoint at the configured path (default: `/json-rpc`).
 - Send JSON-RPC 2.0 request messages and assert on the response.

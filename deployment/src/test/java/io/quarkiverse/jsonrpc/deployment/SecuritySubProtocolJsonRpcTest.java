@@ -52,7 +52,7 @@ public class SecuritySubProtocolJsonRpcTest {
     @Inject
     Vertx vertx;
 
-    @TestHTTPResource("quarkus/json-rpc")
+    @TestHTTPResource("json-rpc")
     URI jsonRpcUri;
 
     @Test

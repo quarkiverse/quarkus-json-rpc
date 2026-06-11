@@ -27,7 +27,7 @@ public class JsonRpcParent {
     @Inject
     Vertx vertx;
 
-    @TestHTTPResource("quarkus/json-rpc")
+    @TestHTTPResource("json-rpc")
     URI jsonRpcUri;
 
     protected String getJsonRpcResponse(String providedInput) throws Exception {

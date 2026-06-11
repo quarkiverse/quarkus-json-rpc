@@ -13,6 +13,6 @@ public interface JsonRPCWebSocketConfig {
     /**
      * HTTP Path for the JsonRPC Websocket
      */
-    @WithDefault("/quarkus/json-rpc")
+    @WithDefault("/json-rpc")
     String path();
 }

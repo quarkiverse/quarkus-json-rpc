@@ -62,7 +62,7 @@ This follows the standard Quarkus extension split:
 
 **Configuration** (build-time):
 - `quarkus.json-rpc.web-socket.enabled` (default: `true`)
-- `quarkus.json-rpc.web-socket.path` (default: `/quarkus/json-rpc`)
+- `quarkus.json-rpc.web-socket.path` (default: `/json-rpc`)
 
 ## Testing Patterns
 

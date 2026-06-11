@@ -41,7 +41,7 @@ export class JsonRPCClient {
 
     constructor(options = {}) {
         const merged = { ...JsonRPCClient._config, ...options };
-        this._path = merged.path || '/quarkus/json-rpc';
+        this._path = merged.path || '/json-rpc';
         this._url = merged.url || null;
         this._autoReconnect = merged.autoReconnect !== false;
         this._reconnectDelay = 1000;

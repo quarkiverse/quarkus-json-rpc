@@ -110,7 +110,7 @@ You can also secure the entire WebSocket endpoint at the HTTP level using standa
 [source,properties]
 ----
 # Require authentication for the JSON-RPC endpoint
-quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc
+quarkus.http.auth.permission.json-rpc.paths=/json-rpc
 quarkus.http.auth.permission.json-rpc.policy=authenticated
 ----
 
@@ -122,7 +122,7 @@ You can restrict access to specific roles at the HTTP level:
 
 [source,properties]
 ----
-quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc
+quarkus.http.auth.permission.json-rpc.paths=/json-rpc
 quarkus.http.auth.permission.json-rpc.policy=role-policy
 
 quarkus.http.auth.policy.role-policy.roles-allowed=admin,operator
@@ -139,7 +139,7 @@ For example, require authentication to connect, then use `@RolesAllowed` to rest
 
 [source,properties]
 ----
-quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc
+quarkus.http.auth.permission.json-rpc.paths=/json-rpc
 quarkus.http.auth.permission.json-rpc.policy=authenticated
 ----
 
@@ -182,7 +182,7 @@ Connect with credentials from a Java or Node.js client (which supports custom he
 [source,javascript]
 ----
 // Node.js — custom headers are supported
-const ws = new WebSocket('ws://localhost:8080/quarkus/json-rpc', {
+const ws = new WebSocket('ws://localhost:8080/json-rpc', {
     headers: { Authorization: 'Basic ' + btoa('admin:secret') }
 });
 ----
