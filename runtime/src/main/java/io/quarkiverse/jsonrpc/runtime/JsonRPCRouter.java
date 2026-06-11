@@ -246,10 +246,24 @@ public class JsonRPCRouter {
         });
     }
 
-    @SuppressWarnings("unchecked")
     private void route(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
-        JsonRPCHotReplacementSetup.scan();
+        if (JsonRPCHotReplacementSetup.isEnabled()) {
+            Vertx.currentContext().<Void> executeBlocking(() -> {
+                JsonRPCHotReplacementSetup.scan();
+                return null;
+            }).onComplete(ar -> {
+                if (ar.failed()) {
+                    LOG.warnf(ar.cause(), "JSON-RPC hot reload scan failed");
+                }
+                dispatchRoute(jsonRpcRequest, s);
+            });
+        } else {
+            dispatchRoute(jsonRpcRequest, s);
+        }
+    }
 
+    @SuppressWarnings("unchecked")
+    private void dispatchRoute(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
         // Handle unsubscribe requests before normal method lookup
         if (JsonRPCKeys.UNSUBSCRIBE.equals(jsonRpcRequest.getMethod())) {
             handleUnsubscribe(jsonRpcRequest, s);

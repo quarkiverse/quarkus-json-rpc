@@ -44,7 +44,8 @@ public class JsonRpcDevModeTest {
                             ws.writeTextMessage(
                                     JsonObject.of("jsonrpc", "2.0", "id", id, "method", method).encode());
                         } else {
-                            messages.add("{\"error\":{\"message\":\"" + r.cause().getMessage() + "\"}}");
+                            messages.add(JsonObject.of("error",
+                                    JsonObject.of("message", r.cause().getMessage())).encode());
                         }
                     });
             String response = messages.poll(10, TimeUnit.SECONDS);

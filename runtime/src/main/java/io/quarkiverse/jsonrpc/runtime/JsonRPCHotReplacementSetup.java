@@ -15,7 +15,11 @@ public class JsonRPCHotReplacementSetup implements HotReplacementSetup {
         context = ctx;
     }
 
-    static boolean scan() {
+    static boolean isEnabled() {
+        return context != null;
+    }
+
+    static boolean scan() throws Exception {
         HotReplacementContext ctx = context;
         if (ctx == null) {
             return false;
@@ -29,11 +33,7 @@ public class JsonRPCHotReplacementSetup implements HotReplacementSetup {
                 return false;
             }
             nextUpdate = now + HOT_REPLACEMENT_INTERVAL;
-            try {
-                return ctx.doScan(true);
-            } catch (Exception e) {
-                throw new RuntimeException("JSON-RPC hot reload scan failed", e);
-            }
+            return ctx.doScan(true);
         }
     }
 }
