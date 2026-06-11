@@ -2,7 +2,7 @@
 
 include::./includes/attributes.adoc[]
 
-When the `quarkus-micrometer` extension is present, JSON-RPC automatically records metrics for every method invocation and tracks active WebSocket connections. No configuration or code changes are needed.
+When the `quarkus-micrometer` extension is present, JSON-RPC automatically records metrics for every method invocation and tracks active WebSocket connections and streaming subscriptions. No configuration or code changes are needed.
 
 == Setup
 
@@ -26,19 +26,29 @@ That's it — metrics are enabled automatically.
 
 | `jsonrpc.requests`
 | Timer
-| Duration and count of JSON-RPC method invocations. Tagged with `method` (e.g. `HelloResource#hello`) and `outcome` (`success` or `error`).
+| Duration and count of JSON-RPC method invocations. Tagged with `method` (e.g. `HelloResource#hello`) and `outcome` (`success` or `error`). For streaming methods (`Multi`/`Flow.Publisher`), this measures the time to create the stream — not the total streaming duration.
 
 | `jsonrpc.active.connections`
 | Gauge
 | Current number of open WebSocket connections.
+
+| `jsonrpc.subscriptions.active`
+| Gauge
+| Current number of active streaming subscriptions (`Multi`/`Flow.Publisher`).
+
+| `jsonrpc.subscription.errors`
+| Counter
+| Number of errors that occurred during active streaming subscriptions. Tagged with `method`.
 |===
 
 == Example: Prometheus Output
 
-After calling `HelloResource#hello` a few times, the Prometheus endpoint (`/q/metrics`) will include:
+After calling `HelloResource#hello` a few times and subscribing to a streaming method, the Prometheus endpoint (`/q/metrics`) will include:
 
 ----
 jsonrpc_requests_seconds_count{method="HelloResource#hello",outcome="success"} 5.0
 jsonrpc_requests_seconds_sum{method="HelloResource#hello",outcome="success"} 0.042
 jsonrpc_active_connections 2.0
+jsonrpc_subscriptions_active 1.0
+jsonrpc_subscription_errors_total{method="MultiResource#failing"} 0.0
 ----

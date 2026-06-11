@@ -6,12 +6,10 @@ import java.util.function.Supplier;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
-import io.quarkus.arc.Arc;
 import io.quarkus.arc.SyntheticCreationalContext;
 import io.quarkus.arc.runtime.BeanContainer;
 import io.quarkus.runtime.annotations.Recorder;
@@ -21,12 +19,10 @@ import io.vertx.ext.web.RoutingContext;
 @Recorder
 public class JsonRPCRecorder {
 
-    // package-private for use by JsonRPCRouter; visible for testing
-    public static volatile JsonRPCMetrics metrics;
+    static volatile JsonRPCMetricsHandler metrics;
 
     public void initMetrics() {
-        MeterRegistry registry = Arc.container().select(MeterRegistry.class).get();
-        metrics = new JsonRPCMetrics(registry);
+        metrics = JsonRPCMetrics.create();
     }
 
     public Supplier<JsonRPCSessions> createJsonRpcSessions() {

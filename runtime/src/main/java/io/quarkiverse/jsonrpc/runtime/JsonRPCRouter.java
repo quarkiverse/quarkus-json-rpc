@@ -68,7 +68,7 @@ public class JsonRPCRouter {
         populateJsonRPCMethods(methodsMap);
     }
 
-    private static JsonRPCMetrics metrics() {
+    private static JsonRPCMetricsHandler metrics() {
         return JsonRPCRecorder.metrics;
     }
 
@@ -227,7 +227,7 @@ public class JsonRPCRouter {
 
     public void addSocket(ServerWebSocket socket, SecurityIdentity identity) {
         sessions.addSession(socket);
-        JsonRPCMetrics m = metrics();
+        JsonRPCMetricsHandler m = metrics();
         if (m != null) {
             m.connectionOpened();
         }
@@ -241,17 +241,21 @@ public class JsonRPCRouter {
         socket.closeHandler((e) -> {
             sessions.removeSession(socket);
             socketIdentities.remove(socket);
-            JsonRPCMetrics mc = metrics();
+            JsonRPCMetricsHandler mc = metrics();
             if (mc != null) {
                 mc.connectionClosed();
             }
             Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
+                JsonRPCMetricsHandler ms = metrics();
                 for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {
                     try {
                         entry.getValue().cancel();
                     } catch (Exception ex) {
                         LOG.warnf(ex, "Failed to cancel subscription %s on WebSocket close", entry.getKey());
+                    }
+                    if (ms != null) {
+                        ms.subscriptionEnded();
                     }
                 }
             }
@@ -294,7 +298,7 @@ public class JsonRPCRouter {
             ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(key);
             Object target = Arc.container().select(reflectionInfo.bean).get();
             String methodName = jsonRpcRequest.getMethod();
-            JsonRPCMetrics m = metrics();
+            JsonRPCMetricsHandler m = metrics();
             long startNanos = m != null ? System.nanoTime() : 0;
 
             if (reflectionInfo.isReturningMulti() || reflectionInfo.isReturningFlowPublisher()) {
@@ -351,14 +355,25 @@ public class JsonRPCRouter {
                 // Send ack before subscribing so client has subscription ID before items arrive
                 codec.writeResponse(s, jsonRpcRequest.getId(), subscriptionId);
 
+                if (m != null) {
+                    m.subscriptionStarted();
+                }
+
                 Cancellable cancellable = multi.subscribe()
                         .with(
                                 item -> codec.writeSubscriptionItem(s, subscriptionId, item),
                                 failure -> {
+                                    if (m != null) {
+                                        m.recordSubscriptionError(methodName);
+                                        m.subscriptionEnded();
+                                    }
                                     codec.writeSubscriptionError(s, subscriptionId, methodName, unwrap(failure));
                                     subs.remove(subscriptionId);
                                 },
                                 () -> {
+                                    if (m != null) {
+                                        m.subscriptionEnded();
+                                    }
                                     codec.writeSubscriptionComplete(s, subscriptionId);
                                     subs.remove(subscriptionId);
                                 });
@@ -424,6 +439,10 @@ public class JsonRPCRouter {
             Cancellable cancellable = subs.remove(subscriptionId);
             if (cancellable != null) {
                 cancellable.cancel();
+                JsonRPCMetricsHandler m = metrics();
+                if (m != null) {
+                    m.subscriptionEnded();
+                }
                 codec.writeResponse(s, jsonRpcRequest.getId(), true);
                 return;
             }
