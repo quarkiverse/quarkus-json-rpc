@@ -20,7 +20,7 @@ public class GreetingService {
 }
 ----
 
-Connect to `ws://localhost:8080/quarkus/json-rpc` and send:
+Connect to `ws://localhost:8080/json-rpc` and send:
 
 [source,json]
 ----

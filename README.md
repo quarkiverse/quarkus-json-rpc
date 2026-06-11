@@ -37,7 +37,7 @@ public class GreetingService {
 
 ### 3. Call it over WebSocket
 
-Connect to `ws://localhost:8080/quarkus/json-rpc` and send:
+Connect to `ws://localhost:8080/json-rpc` and send:
 
 ```json
 {

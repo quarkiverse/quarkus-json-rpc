@@ -72,7 +72,7 @@ The typed proxy exports the `client` instance so you can reconfigure the WebSock
 import { client, GreetingService } from '@quarkiverse/json-rpc-api';
 
 // Override the full URL
-client.url = 'wss://gateway.example.com/quarkus/json-rpc';
+client.url = 'wss://gateway.example.com/json-rpc';
 
 // Or just change the path
 client.path = '/api/json-rpc';
@@ -90,7 +90,7 @@ If you prefer more control, import the `JsonRPCClient` class directly:
 import { JsonRPCClient } from '@quarkiverse/json-rpc';
 
 const client = new JsonRPCClient({
-    path: '/quarkus/json-rpc',   // WebSocket path (default)
+    path: '/json-rpc',   // WebSocket path (default)
     autoReconnect: true,         // Reconnect on disconnect (default)
     maxReconnectDelay: 30000     // Max backoff in ms (default)
 });
@@ -193,7 +193,7 @@ const client = new JsonRPCClient({
 
 | `path`
 | `string`
-| `'/quarkus/json-rpc'`
+| `'/json-rpc'`
 | WebSocket endpoint path
 
 | `url`

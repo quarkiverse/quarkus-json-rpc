@@ -40,7 +40,7 @@ public class SecurityHttpPolicyJsonRpcTest {
                 root.addClasses(HelloResource.class);
                 root.addAsResource(new org.jboss.shrinkwrap.api.asset.StringAsset(
                         "quarkus.http.auth.basic=true\n" +
-                                "quarkus.http.auth.permission.json-rpc.paths=/quarkus/json-rpc\n" +
+                                "quarkus.http.auth.permission.json-rpc.paths=/json-rpc\n" +
                                 "quarkus.http.auth.permission.json-rpc.policy=authenticated\n" +
                                 "quarkus.security.users.embedded.enabled=true\n" +
                                 "quarkus.security.users.embedded.plain-text=true\n" +
@@ -52,7 +52,7 @@ public class SecurityHttpPolicyJsonRpcTest {
     @Inject
     Vertx vertx;
 
-    @TestHTTPResource("quarkus/json-rpc")
+    @TestHTTPResource("json-rpc")
     URI jsonRpcUri;
 
     @Test

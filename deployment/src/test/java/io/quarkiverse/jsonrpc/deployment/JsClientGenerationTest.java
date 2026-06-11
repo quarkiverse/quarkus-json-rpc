@@ -33,7 +33,7 @@ public class JsClientGenerationTest extends JsClientTestBase {
         String body = httpGet("/_static/quarkus-json-rpc-api/jsonrpc-api.js");
         Assertions.assertTrue(body.contains("import { JsonRPCClient } from '@quarkiverse/json-rpc'"),
                 "Proxy should import using bare import specifier");
-        Assertions.assertTrue(body.contains("export const client = new JsonRPCClient({ path: '/quarkus/json-rpc' })"),
+        Assertions.assertTrue(body.contains("export const client = new JsonRPCClient({ path: '/json-rpc' })"),
                 "Proxy should export a client instance with configured path");
     }
 
