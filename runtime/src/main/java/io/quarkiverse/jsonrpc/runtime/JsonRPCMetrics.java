@@ -12,12 +12,16 @@ import io.quarkus.arc.Arc;
 
 class JsonRPCMetrics implements JsonRPCMetricsHandler {
 
+    // Gauge state objects are static so the MeterRegistry's existing gauge references
+    // remain valid across hot reloads (Micrometer returns the old gauge on duplicate
+    // registration, so new AtomicLongs would never be observed).
+    private static final AtomicLong activeConnections = new AtomicLong(0);
+    private static final AtomicLong activeSubscriptions = new AtomicLong(0);
+
     private final MeterRegistry registry;
     private final ConcurrentHashMap<String, Timer> successTimers = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Timer> errorTimers = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Counter> subscriptionErrorCounters = new ConcurrentHashMap<>();
-    private final AtomicLong activeConnections = new AtomicLong(0);
-    private final AtomicLong activeSubscriptions = new AtomicLong(0);
 
     private JsonRPCMetrics(MeterRegistry registry) {
         this.registry = registry;
@@ -30,6 +34,8 @@ class JsonRPCMetrics implements JsonRPCMetricsHandler {
     }
 
     static JsonRPCMetrics create() {
+        activeConnections.set(0);
+        activeSubscriptions.set(0);
         MeterRegistry registry = Arc.container().select(MeterRegistry.class).get();
         return new JsonRPCMetrics(registry);
     }
