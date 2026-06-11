@@ -274,6 +274,8 @@ public class JsonRPCProcessor {
             Optional<MetricsCapabilityBuildItem> metricsCapability) {
         if (metricsCapability.isPresent()) {
             recorder.initMetrics();
+        } else {
+            recorder.clearMetrics();
         }
     }
 

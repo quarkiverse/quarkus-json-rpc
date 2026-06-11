@@ -247,15 +247,14 @@ public class JsonRPCRouter {
             }
             Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
-                JsonRPCMetricsHandler ms = metrics();
                 for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {
                     try {
                         entry.getValue().cancel();
                     } catch (Exception ex) {
                         LOG.warnf(ex, "Failed to cancel subscription %s on WebSocket close", entry.getKey());
                     }
-                    if (ms != null) {
-                        ms.subscriptionEnded();
+                    if (mc != null) {
+                        mc.subscriptionEnded();
                     }
                 }
             }

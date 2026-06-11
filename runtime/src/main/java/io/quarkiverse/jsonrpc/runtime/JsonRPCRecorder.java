@@ -25,6 +25,10 @@ public class JsonRPCRecorder {
         metrics = JsonRPCMetrics.create();
     }
 
+    public void clearMetrics() {
+        metrics = null;
+    }
+
     public Supplier<JsonRPCSessions> createJsonRpcSessions() {
         return JsonRPCSessions::new;
     }

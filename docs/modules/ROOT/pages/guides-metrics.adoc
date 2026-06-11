@@ -26,7 +26,7 @@ That's it — metrics are enabled automatically.
 
 | `jsonrpc.requests`
 | Timer
-| Duration and count of JSON-RPC method invocations. Tagged with `method` (e.g. `HelloResource#hello`) and `outcome` (`success` or `error`). For streaming methods (`Multi`/`Flow.Publisher`), this measures the time to create the stream — not the total streaming duration.
+| Duration and count of JSON-RPC method invocations. Tagged with `method` (e.g. `HelloResource#hello`) and `outcome` (`success` or `error`). For streaming methods (`Multi`/`Flow.Publisher`), this measures the time to create the stream — not the total streaming duration. A streaming method that creates the `Multi` successfully records `outcome=success` even if the subscription later fails; subscription-level errors are tracked separately by `jsonrpc.subscription.errors`.
 
 | `jsonrpc.active.connections`
 | Gauge

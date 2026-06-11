@@ -94,8 +94,11 @@ public class MetricsJsonRpcTest {
             CompletableFuture<Void> closed = new CompletableFuture<>();
             ws.close().onComplete(r -> closed.complete(null));
             closed.get(5, TimeUnit.SECONDS);
-            Thread.sleep(100);
 
+            long deadline = System.currentTimeMillis() + 5000;
+            while (gauge.value() > before && System.currentTimeMillis() < deadline) {
+                Thread.sleep(50);
+            }
             Assertions.assertTrue(gauge.value() <= before,
                     "Gauge should decrease when a connection is closed");
         } finally {
