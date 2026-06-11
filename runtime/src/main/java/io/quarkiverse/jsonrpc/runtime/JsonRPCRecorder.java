@@ -19,6 +19,16 @@ import io.vertx.ext.web.RoutingContext;
 @Recorder
 public class JsonRPCRecorder {
 
+    static volatile JsonRPCMetricsHandler metrics;
+
+    public void initMetrics() {
+        metrics = JsonRPCMetrics.create();
+    }
+
+    public void clearMetrics() {
+        metrics = null;
+    }
+
     public Supplier<JsonRPCSessions> createJsonRpcSessions() {
         return JsonRPCSessions::new;
     }

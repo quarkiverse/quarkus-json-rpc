@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -53,6 +54,7 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
+import io.quarkus.deployment.metrics.MetricsCapabilityBuildItem;
 import io.quarkus.deployment.pkg.builditem.CurateOutcomeBuildItem;
 import io.quarkus.deployment.util.IoUtil;
 import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
@@ -262,6 +264,18 @@ public class JsonRPCProcessor {
                     .createWith(recorder.createJsonRpcBroadcaster())
                     .scope(ApplicationScoped.class)
                     .done());
+        }
+    }
+
+    @BuildStep
+    @Record(ExecutionTime.RUNTIME_INIT)
+    void registerMetrics(
+            JsonRPCRecorder recorder,
+            Optional<MetricsCapabilityBuildItem> metricsCapability) {
+        if (metricsCapability.isPresent()) {
+            recorder.initMetrics();
+        } else {
+            recorder.clearMetrics();
         }
     }
 

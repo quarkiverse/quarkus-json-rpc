@@ -68,6 +68,10 @@ public class JsonRPCRouter {
         populateJsonRPCMethods(methodsMap);
     }
 
+    private static JsonRPCMetricsHandler metrics() {
+        return JsonRPCRecorder.metrics;
+    }
+
     /**
      * This gets called on build to build into of the classes we are going to call in runtime
      *
@@ -223,6 +227,10 @@ public class JsonRPCRouter {
 
     public void addSocket(ServerWebSocket socket, SecurityIdentity identity) {
         sessions.addSession(socket);
+        JsonRPCMetricsHandler m = metrics();
+        if (m != null) {
+            m.connectionOpened();
+        }
         if (identity != null && !identity.isAnonymous()) {
             socketIdentities.put(socket, identity);
         }
@@ -233,6 +241,10 @@ public class JsonRPCRouter {
         socket.closeHandler((e) -> {
             sessions.removeSession(socket);
             socketIdentities.remove(socket);
+            JsonRPCMetricsHandler mc = metrics();
+            if (mc != null) {
+                mc.connectionClosed();
+            }
             Map<String, Cancellable> subs = socketSubscriptions.remove(socket);
             if (subs != null) {
                 for (Map.Entry<String, Cancellable> entry : subs.entrySet()) {
@@ -240,6 +252,9 @@ public class JsonRPCRouter {
                         entry.getValue().cancel();
                     } catch (Exception ex) {
                         LOG.warnf(ex, "Failed to cancel subscription %s on WebSocket close", entry.getKey());
+                    }
+                    if (mc != null) {
+                        mc.subscriptionEnded();
                     }
                 }
             }
@@ -281,6 +296,9 @@ public class JsonRPCRouter {
         if (this.jsonRpcToJava.containsKey(key)) {
             ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(key);
             Object target = Arc.container().select(reflectionInfo.bean).get();
+            String methodName = jsonRpcRequest.getMethod();
+            JsonRPCMetricsHandler m = metrics();
+            long startNanos = m != null ? System.nanoTime() : 0;
 
             if (reflectionInfo.isReturningMulti() || reflectionInfo.isReturningFlowPublisher()) {
                 Multi<?> multi;
@@ -306,9 +324,12 @@ public class JsonRPCRouter {
                         multi = Multi.createFrom().publisher((Flow.Publisher<?>) result);
                     }
                 } catch (Exception e) {
-                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
+                    if (m != null) {
+                        m.recordError(methodName, System.nanoTime() - startNanos);
+                    }
+                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", methodName,
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(e));
+                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), methodName, unwrap(e));
                     return;
                 } finally {
                     if (activated) {
@@ -316,8 +337,11 @@ public class JsonRPCRouter {
                     }
                 }
 
+                if (m != null) {
+                    m.recordSuccess(methodName, System.nanoTime() - startNanos);
+                }
+
                 String subscriptionId = UUID.randomUUID().toString();
-                String methodName = jsonRpcRequest.getMethod();
                 Map<String, Cancellable> subs = this.socketSubscriptions.computeIfAbsent(s,
                         k -> new ConcurrentHashMap<>());
 
@@ -330,14 +354,25 @@ public class JsonRPCRouter {
                 // Send ack before subscribing so client has subscription ID before items arrive
                 codec.writeResponse(s, jsonRpcRequest.getId(), subscriptionId);
 
+                if (m != null) {
+                    m.subscriptionStarted();
+                }
+
                 Cancellable cancellable = multi.subscribe()
                         .with(
                                 item -> codec.writeSubscriptionItem(s, subscriptionId, item),
                                 failure -> {
+                                    if (m != null) {
+                                        m.recordSubscriptionError(methodName);
+                                        m.subscriptionEnded();
+                                    }
                                     codec.writeSubscriptionError(s, subscriptionId, methodName, unwrap(failure));
                                     subs.remove(subscriptionId);
                                 },
                                 () -> {
+                                    if (m != null) {
+                                        m.subscriptionEnded();
+                                    }
                                     codec.writeSubscriptionComplete(s, subscriptionId);
                                     subs.remove(subscriptionId);
                                 });
@@ -354,16 +389,25 @@ public class JsonRPCRouter {
                         uni = invoke(reflectionInfo, target, new Object[0], s);
                     }
                 } catch (Exception e) {
-                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", jsonRpcRequest.getMethod(),
+                    if (m != null) {
+                        m.recordError(methodName, System.nanoTime() - startNanos);
+                    }
+                    LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", methodName,
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(e));
+                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), methodName, unwrap(e));
                     return;
                 }
                 uni.subscribe()
                         .with(item -> {
+                            if (m != null) {
+                                m.recordSuccess(methodName, System.nanoTime() - startNanos);
+                            }
                             codec.writeResponse(s, jsonRpcRequest.getId(), item);
                         }, failure -> {
-                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod(), unwrap(failure));
+                            if (m != null) {
+                                m.recordError(methodName, System.nanoTime() - startNanos);
+                            }
+                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), methodName, unwrap(failure));
                         });
             }
         } else {
@@ -394,6 +438,10 @@ public class JsonRPCRouter {
             Cancellable cancellable = subs.remove(subscriptionId);
             if (cancellable != null) {
                 cancellable.cancel();
+                JsonRPCMetricsHandler m = metrics();
+                if (m != null) {
+                    m.subscriptionEnded();
+                }
                 codec.writeResponse(s, jsonRpcRequest.getId(), true);
                 return;
             }
