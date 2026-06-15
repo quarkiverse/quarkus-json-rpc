@@ -8,7 +8,6 @@ metadata:
     - jsonrpc
     - websocket
     - rpc
-  guide: https://quarkiverse.github.io/quarkiverse-docs/json-rpc/dev/
   categories:
     - "web"
   status: "preview"
