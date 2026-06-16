@@ -125,76 +125,73 @@ public class JsonRPCProcessor {
             for (MethodInfo method : methods) {
                 if (!method.name().equals(CONSTRUCTOR)) { // Ignore constructor
                     if (Modifier.isPublic(method.flags())) { // Only allow public methods
-                        if (method.returnType().kind() != Type.Kind.VOID) { // TODO: Only allow method with response ? Maybe not
-
-                            if (method.hasAnnotation(Blocking.class) && method.hasAnnotation(NonBlocking.class)) {
+                        if (method.hasAnnotation(Blocking.class) && method.hasAnnotation(NonBlocking.class)) {
+                            throw new IllegalArgumentException(
+                                    "Method " + classInfo.name() + "." + method.name()
+                                            + " cannot be annotated with both @Blocking and @NonBlocking");
+                        }
+                        if (method.hasAnnotation(RunOnVirtualThread.class)
+                                && method.hasAnnotation(NonBlocking.class)) {
+                            throw new IllegalArgumentException(
+                                    "Method " + classInfo.name() + "." + method.name()
+                                            + " cannot be annotated with both @RunOnVirtualThread and @NonBlocking");
+                        }
+                        if (method.hasAnnotation(RunOnVirtualThread.class)) {
+                            String returnTypeName = method.returnType().name().toString();
+                            if (returnTypeName.equals("io.smallrye.mutiny.Multi")
+                                    || returnTypeName.equals("java.util.concurrent.Flow$Publisher")) {
                                 throw new IllegalArgumentException(
                                         "Method " + classInfo.name() + "." + method.name()
-                                                + " cannot be annotated with both @Blocking and @NonBlocking");
+                                                + " cannot use @RunOnVirtualThread with a streaming return type"
+                                                + " (Multi/Flow.Publisher)");
                             }
-                            if (method.hasAnnotation(RunOnVirtualThread.class)
-                                    && method.hasAnnotation(NonBlocking.class)) {
-                                throw new IllegalArgumentException(
-                                        "Method " + classInfo.name() + "." + method.name()
-                                                + " cannot be annotated with both @RunOnVirtualThread and @NonBlocking");
-                            }
-                            if (method.hasAnnotation(RunOnVirtualThread.class)) {
-                                String returnTypeName = method.returnType().name().toString();
-                                if (returnTypeName.equals("io.smallrye.mutiny.Multi")
-                                        || returnTypeName.equals("java.util.concurrent.Flow$Publisher")) {
-                                    throw new IllegalArgumentException(
-                                            "Method " + classInfo.name() + "." + method.name()
-                                                    + " cannot use @RunOnVirtualThread with a streaming return type"
-                                                    + " (Multi/Flow.Publisher)");
-                                }
-                            }
-                            if (method.hasAnnotation(RunOnVirtualThread.class)
-                                    && method.hasAnnotation(Blocking.class)) {
-                                LOG.warnf("Method %s.%s is annotated with both @RunOnVirtualThread and @Blocking."
-                                        + " @Blocking is redundant and will be ignored.",
-                                        classInfo.name(), method.name());
-                            }
+                        }
+                        if (method.hasAnnotation(RunOnVirtualThread.class)
+                                && method.hasAnnotation(Blocking.class)) {
+                            LOG.warnf("Method %s.%s is annotated with both @RunOnVirtualThread and @Blocking."
+                                    + " @Blocking is redundant and will be ignored.",
+                                    classInfo.name(), method.name());
+                        }
 
-                            ExecutionMode executionMode;
-                            if (method.hasAnnotation(RunOnVirtualThread.class)) {
-                                executionMode = ExecutionMode.VIRTUAL_THREAD;
-                            } else if (method.hasAnnotation(Blocking.class)) {
-                                executionMode = ExecutionMode.BLOCKING;
-                            } else if (method.hasAnnotation(NonBlocking.class)) {
-                                executionMode = ExecutionMode.NON_BLOCKING;
-                            } else {
-                                executionMode = ExecutionMode.DEFAULT;
+                        ExecutionMode executionMode;
+                        if (method.hasAnnotation(RunOnVirtualThread.class)) {
+                            executionMode = ExecutionMode.VIRTUAL_THREAD;
+                        } else if (method.hasAnnotation(Blocking.class)) {
+                            executionMode = ExecutionMode.BLOCKING;
+                        } else if (method.hasAnnotation(NonBlocking.class)) {
+                            executionMode = ExecutionMode.NON_BLOCKING;
+                        } else {
+                            executionMode = ExecutionMode.DEFAULT;
+                        }
+
+                        String fullName = null;
+
+                        if (method.parametersCount() > 0) {
+                            Map<String, Class> params = new LinkedHashMap<>(); // Keep the order
+                            for (int i = 0; i < method.parametersCount(); i++) {
+                                Type parameterType = method.parameterType(i);
+                                Class parameterClass = toClass(parameterType);
+                                String parameterName = method.parameterName(i);
+                                params.put(parameterName, parameterClass);
+                                nativeClasses.addAll(getEffectiveTypes(parameterType));
                             }
+                            fullName = Keys.createKey(scope, method.name(), params.keySet());
 
-                            String fullName = null;
+                            JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName,
+                                    Keys.createOrderedParameterKey(scope, method.name(), method.parametersCount()));
+                            JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), params);
+                            jsonRpcMethod.setExecutionMode(executionMode);
+                            methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
+                        } else {
+                            fullName = Keys.createKey(scope, method.name());
+                            JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
+                            JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), null);
+                            jsonRpcMethod.setExecutionMode(executionMode);
+                            methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
+                        }
 
-                            if (method.parametersCount() > 0) {
-                                Map<String, Class> params = new LinkedHashMap<>(); // Keep the order
-                                for (int i = 0; i < method.parametersCount(); i++) {
-                                    Type parameterType = method.parameterType(i);
-                                    Class parameterClass = toClass(parameterType);
-                                    String parameterName = method.parameterName(i);
-                                    params.put(parameterName, parameterClass);
-                                    nativeClasses.addAll(getEffectiveTypes(parameterType));
-                                }
-                                fullName = Keys.createKey(scope, method.name(), params.keySet());
-
-                                JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName,
-                                        Keys.createOrderedParameterKey(scope, method.name(), method.parametersCount()));
-                                JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), params);
-                                jsonRpcMethod.setExecutionMode(executionMode);
-                                methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
-                            } else {
-                                fullName = Keys.createKey(scope, method.name());
-                                JsonRPCMethodName jsonRpcMethodName = new JsonRPCMethodName(fullName, null);
-                                JsonRPCMethod jsonRpcMethod = new JsonRPCMethod(clazz, method.name(), null);
-                                jsonRpcMethod.setExecutionMode(executionMode);
-                                methodsMap.put(jsonRpcMethodName, jsonRpcMethod);
-                            }
-
-                            // Add the return type
+                        if (method.returnType().kind() != Type.Kind.VOID) {
                             nativeClasses.addAll(getEffectiveTypes(method.returnType()));
-
                         }
                     }
                 }

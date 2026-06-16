@@ -23,7 +23,7 @@ public class GreetingService {
 }
 ----
 
-The extension discovers annotated classes at build time. Each public method with a non-void return type becomes a JSON-RPC method.
+The extension discovers annotated classes at build time. Each public method becomes a JSON-RPC method.
 
 == Method Names
 
@@ -56,9 +56,9 @@ Now the method is called as `greet#hello` instead of `GreetingService#hello`. Th
 The following rules apply when the extension scans your class:
 
 - Only **public** methods are exposed.
-- Methods **must** have a non-void return type.
 - Constructors and static methods are ignored.
 - Private and package-private methods are ignored.
+- Methods may return any type, including `void` (see <<void-methods>> below).
 
 == CDI Integration
 
@@ -77,6 +77,48 @@ public class OrderService {
     }
 }
 ----
+
+[#void-methods]
+== Void Methods (Fire-and-Forget)
+
+Methods returning `void` are supported for fire-and-forget operations. They pair naturally with JSON-RPC https://www.jsonrpc.org/specification#notification[notifications] — requests sent without an `id`:
+
+[source,java]
+----
+@JsonRPCApi
+public class EventService {
+
+    public void trackEvent(String name) {
+        // process the event — no result to return
+    }
+}
+----
+
+The client sends a notification (no `id` field):
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "method": "EventService#trackEvent",
+  "params": { "name": "page_view" }
+}
+----
+
+The server executes the method and sends no response.
+
+If the client _does_ include an `id`, the server responds with `"result": null` per the JSON-RPC 2.0 specification:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": null
+}
+----
+
+Void methods follow the same execution mode rules as any other method — they are blocking by default and can be annotated with `@NonBlocking` or `@RunOnVirtualThread`. See xref:guides-execution-modes.adoc[Execution Modes & Return Types].
 
 == WebSocket Endpoint
 

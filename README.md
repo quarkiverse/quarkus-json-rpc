@@ -53,6 +53,7 @@ Connect to `ws://localhost:8080/json-rpc` and send:
 - **JSON-RPC 2.0** — full protocol compliance including error codes and notifications
 - **WebSocket transport** — bidirectional communication out of the box
 - **Reactive** — `Uni<T>` for async results, `Multi<T>` for streaming subscriptions
+- **Fire-and-forget** — `void` methods for notification-style calls with no response
 - **Blocking & non-blocking** — control execution threads with `@Blocking` and `@NonBlocking`
 - **Server push** — broadcast notifications to all clients or target specific sessions
 - **Named & positional parameters** — both JSON object and array parameter styles

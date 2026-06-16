@@ -156,6 +156,10 @@ To use `@RunOnVirtualThread`, add the `quarkus-virtual-threads` extension to you
 |===
 | Return type | Default | Override
 
+| `void`
+| Blocking
+| `@NonBlocking`, `@RunOnVirtualThread`
+
 | Plain type
 | Blocking
 | `@NonBlocking`, `@RunOnVirtualThread`
