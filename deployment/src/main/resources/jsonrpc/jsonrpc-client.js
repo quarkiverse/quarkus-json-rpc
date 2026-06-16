@@ -258,6 +258,21 @@ export class JsonRPCClient {
     }
 
     /**
+     * Send a JSON-RPC notification (fire-and-forget, no response expected).
+     *
+     * @param {string} method - Method key, e.g. "EventService#trackEvent"
+     * @param {Object|Array} [params] - Named params object or positional params array
+     */
+    notify(method, params) {
+        const msg = { jsonrpc: '2.0', method };
+        if (params != null) msg.params = params;
+        if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
+            throw new Error('WebSocket not connected');
+        }
+        this._ws.send(JSON.stringify(msg));
+    }
+
+    /**
      * Cancel a streaming subscription by its ID.
      *
      * @param {string} subscriptionId - UUID returned by the subscription ACK
