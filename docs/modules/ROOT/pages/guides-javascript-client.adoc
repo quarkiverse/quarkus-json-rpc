@@ -46,6 +46,21 @@ const full = await GreetingService.greet({ name: 'Jane', surname: 'Doe' });
 
 Each method on the proxy accepts a params object (named parameters) or an array (positional parameters), matching the server-side Java method signature.
 
+=== Void Methods (Fire-and-Forget)
+
+Methods returning `void` on the server are exposed as fire-and-forget notifications. The proxy uses `client.notify()` instead of `client.call()`, so no response is sent back:
+
+[source,javascript]
+----
+import { EventService } from '@quarkiverse/json-rpc-api';
+
+// Fire-and-forget — no response, no Promise
+EventService.trackEvent({ name: 'page_view' });
+EventService.ping();
+----
+
+Under the hood, the proxy sends a JSON-RPC https://www.jsonrpc.org/specification#notification[notification] (a request without an `id` field). The server executes the method but sends no response.
+
 === Streaming Methods
 
 Methods that return `Multi<T>` or `Flow.Publisher<T>` on the server are automatically exposed as subscriptions:
@@ -109,6 +124,22 @@ const result2 = await client.call('GreetingService#hello', ['World']);
 // No parameters
 const result3 = await client.call('GreetingService#hello');
 ----
+
+=== Notifications (Fire-and-Forget)
+
+[source,javascript]
+----
+// Fire-and-forget — no response expected
+client.notify('EventService#trackEvent', { name: 'page_view' });
+
+// With positional parameters
+client.notify('EventService#trackEvent', ['page_view']);
+
+// No parameters
+client.notify('EventService#ping');
+----
+
+`notify()` sends a JSON-RPC notification (no `id` field). The server executes the method but sends no response. Throws if the WebSocket is not connected.
 
 === Subscriptions
 

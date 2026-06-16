@@ -351,7 +351,7 @@ public class JsonRPCProcessor {
         // Group methods by scope and method name (sorted for deterministic output).
         // Multiple overloads of the same method name share one JS proxy entry — the server
         // resolves the correct overload based on parameters. We validate that all overloads
-        // agree on streaming vs non-streaming return type.
+        // agree on their JS client method category (call / subscribe / notify).
         Map<String, Map<String, MethodEntry>> byScope = new java.util.TreeMap<>();
         for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> entry : methodsMap.entrySet()) {
             String key = entry.getKey().getName();
@@ -363,16 +363,15 @@ public class JsonRPCProcessor {
             Map<String, MethodEntry> scopeMethods = byScope.computeIfAbsent(scope, k -> new java.util.TreeMap<>());
             MethodEntry existing = scopeMethods.get(methodName);
             if (existing != null) {
-                // Overloaded method — verify return types agree on streaming vs non-streaming
-                boolean existingStreaming = isStreamingReturnType(existing.method);
-                boolean newStreaming = isStreamingReturnType(entry.getValue());
-                if (existingStreaming != newStreaming) {
+                String existingCategory = jsClientMethod(existing.method);
+                String newCategory = jsClientMethod(entry.getValue());
+                if (!existingCategory.equals(newCategory)) {
                     throw new IllegalArgumentException(
                             "Overloaded method '" + scope + "#" + methodName + "' has conflicting return types: "
-                                    + "some overloads return a streaming type (Multi/Flow.Publisher) while others do not. "
-                                    + "The JavaScript client proxy cannot represent both call() and subscribe() "
-                                    + "under the same method name. Rename one of the overloads or make all overloads "
-                                    + "return the same category (all streaming or all non-streaming).");
+                                    + "some overloads use " + existingCategory + "() while others use " + newCategory
+                                    + "(). "
+                                    + "The JavaScript client proxy cannot represent both under the same method name. "
+                                    + "Rename one of the overloads or make all overloads return the same category.");
                 }
             } else {
                 scopeMethods.put(methodName, new MethodEntry(scope, methodName, entry.getValue()));
@@ -386,8 +385,7 @@ public class JsonRPCProcessor {
             js.append("export const ").append(scope).append(" = {\n");
             int i = 0;
             for (MethodEntry me : methods.values()) {
-                boolean streaming = isStreamingReturnType(me.method);
-                String clientMethod = streaming ? "subscribe" : "call";
+                String clientMethod = jsClientMethod(me.method);
                 String methodKey = me.scope + "#" + me.methodName;
                 js.append("    ").append(me.methodName)
                         .append(": (params) => client.").append(clientMethod)
@@ -431,6 +429,30 @@ public class JsonRPCProcessor {
     private boolean isStreamingReturnType(JsonRPCMethod method) {
         int paramCount = method.hasParams() ? method.getParams().size() : 0;
         return isReturnTypeAssignableTo(method.getClazz(), method.getMethodName(), paramCount, STREAMING_TYPES);
+    }
+
+    private boolean isVoidReturnType(JsonRPCMethod method) {
+        int paramCount = method.hasParams() ? method.getParams().size() : 0;
+        try {
+            for (java.lang.reflect.Method m : method.getClazz().getMethods()) {
+                if (m.getName().equals(method.getMethodName()) && m.getParameterCount() == paramCount) {
+                    return m.getReturnType() == void.class;
+                }
+            }
+        } catch (Exception e) {
+            LOG.debugf(e, "Failed to inspect return type of %s.%s", method.getClazz().getName(), method.getMethodName());
+        }
+        return false;
+    }
+
+    private String jsClientMethod(JsonRPCMethod method) {
+        if (isStreamingReturnType(method)) {
+            return "subscribe";
+        } else if (isVoidReturnType(method)) {
+            return "notify";
+        } else {
+            return "call";
+        }
     }
 
     private record MethodEntry(String scope, String methodName, JsonRPCMethod method) {

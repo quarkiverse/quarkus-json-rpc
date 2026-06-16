@@ -1,5 +1,5 @@
 import {LitElement, html, css} from 'lit';
-import {client, HelloResource, PojoResource, CollectionResource, SecuredResource, scoped} from '@quarkiverse/json-rpc-api';
+import {client, HelloResource, PojoResource, CollectionResource, SecuredResource, EventResource, scoped} from '@quarkiverse/json-rpc-api';
 
 class JsonRpcApp extends LitElement {
 
@@ -236,6 +236,16 @@ class JsonRpcApp extends LitElement {
         }
     }
 
+    _notify(label, fn) {
+        this._addMessage('sent', {notify: label});
+        try {
+            fn();
+            this._addMessage('received', {result: '(no response — fire-and-forget)'});
+        } catch (err) {
+            this._addMessage('error', {error: String(err)});
+        }
+    }
+
     _subscribe(label, fn) {
         this._addMessage('sent', {subscribe: label});
         const sub = fn()
@@ -355,6 +365,11 @@ class JsonRpcApp extends LitElement {
             ['userDashboard() @RolesAllowed("user")', () => SecuredResource.userDashboard()],
         ];
 
+        const fireAndForget = [
+            ['EventResource.ping()', () => EventResource.ping()],
+            ['EventResource.trackEvent({name})', () => EventResource.trackEvent({name: 'page_view'})],
+        ];
+
         const streams = [
             ['HelloResource.helloMulti()', () => HelloResource.helloMulti()],
             ['HelloResource.helloMulti({name})', () => HelloResource.helloMulti({name: 'Stream'})],
@@ -394,6 +409,15 @@ class JsonRpcApp extends LitElement {
                         ${securedCalls.map(([label, fn]) =>
                             html`<button ?disabled=${!this._connected}
                                          @click=${() => this._call(label, fn)}>${label}</button>`
+                        )}
+                    </div>
+
+                    <h2>Fire-and-Forget (void methods)</h2>
+                    <label>Notifications — no response expected</label>
+                    <div class="quick-methods">
+                        ${fireAndForget.map(([label, fn]) =>
+                            html`<button ?disabled=${!this._connected}
+                                         @click=${() => this._notify(label, fn)}>${label}</button>`
                         )}
                     </div>
 

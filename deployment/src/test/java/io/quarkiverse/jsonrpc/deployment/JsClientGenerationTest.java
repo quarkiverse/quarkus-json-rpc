@@ -8,6 +8,7 @@ import io.quarkiverse.jsonrpc.app.HelloResource;
 import io.quarkiverse.jsonrpc.app.Pojo;
 import io.quarkiverse.jsonrpc.app.Pojo2;
 import io.quarkiverse.jsonrpc.app.PojoResource;
+import io.quarkiverse.jsonrpc.app.VoidResource;
 import io.quarkus.test.QuarkusUnitTest;
 
 public class JsClientGenerationTest extends JsClientTestBase {
@@ -15,7 +16,7 @@ public class JsClientGenerationTest extends JsClientTestBase {
     @RegisterExtension
     public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
-                root.addClasses(HelloResource.class, PojoResource.class, Pojo.class, Pojo2.class);
+                root.addClasses(HelloResource.class, PojoResource.class, Pojo.class, Pojo2.class, VoidResource.class);
             })
             .overrideConfigKey("quarkus.json-rpc.js-client.enabled", "true");
 
@@ -62,6 +63,25 @@ public class JsClientGenerationTest extends JsClientTestBase {
                 "Multi methods should use client.subscribe()");
         Assertions.assertTrue(body.contains("pojoMulti: (params) => client.subscribe('PojoResource#pojoMulti'"),
                 "Multi methods on PojoResource should use client.subscribe()");
+    }
+
+    @Test
+    public void testProxyUsesNotifyForVoidMethods() throws Exception {
+        String body = httpGet("/_static/quarkus-json-rpc-api/jsonrpc-api.js");
+        Assertions.assertTrue(body.contains("export const VoidResource"),
+                "Proxy should export VoidResource scope");
+        Assertions.assertTrue(body.contains("fireAndForget: (params) => client.notify('VoidResource#fireAndForget'"),
+                "Void methods should use client.notify()");
+        Assertions.assertTrue(
+                body.contains("fireAndForgetNonBlocking: (params) => client.notify('VoidResource#fireAndForgetNonBlocking'"),
+                "Void @NonBlocking methods should also use client.notify()");
+    }
+
+    @Test
+    public void testClientLibraryContainsNotifyMethod() throws Exception {
+        String body = httpGet("/_static/quarkus-json-rpc/jsonrpc-client.js");
+        Assertions.assertTrue(body.contains("notify(method, params)"),
+                "Client library should contain notify() method");
     }
 
 }
