@@ -338,7 +338,8 @@ public class JsonRPCRouter {
             List<Uni<DispatchResult>> unis = new ArrayList<>();
             for (JsonNode element : elements) {
                 if (!element.isObject() || !element.has(JsonRPCKeys.METHOD)) {
-                    JsonNode id = element.has(JsonRPCKeys.ID) ? element.get(JsonRPCKeys.ID) : NullNode.instance;
+                    JsonNode id = element.isObject() && element.has(JsonRPCKeys.ID) ? element.get(JsonRPCKeys.ID)
+                            : NullNode.instance;
                     unis.add(Uni.createFrom().item(new DispatchResult(new JsonRPCResponse<>(id,
                             new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request")))));
                 } else {

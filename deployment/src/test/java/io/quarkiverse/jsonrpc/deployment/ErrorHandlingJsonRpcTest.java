@@ -79,37 +79,6 @@ public class ErrorHandlingJsonRpcTest {
     }
 
     @Test
-    public void testConnectionSurvivesError() throws Exception {
-        WebSocketClient client = vertx.createWebSocketClient();
-        try {
-            LinkedBlockingDeque<String> queue = new LinkedBlockingDeque<>();
-            client.connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
-                    .onComplete(r -> {
-                        if (r.succeeded()) {
-                            WebSocket ws = r.result();
-                            ws.textMessageHandler(queue::add);
-                            ws.writeTextMessage("not valid json");
-                        } else {
-                            throw new IllegalStateException(r.cause());
-                        }
-                    });
-
-            String errorResponse = queue.poll(10, TimeUnit.SECONDS);
-            Assertions.assertNotNull(errorResponse, "Should receive parse error response");
-            JsonObject errorJson = new JsonObject(errorResponse);
-            Assertions.assertEquals(-32700, errorJson.getJsonObject("error").getInteger("code"));
-
-            // Now send a valid request on the same connection — it should still work
-            client.connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
-                    .toCompletionStage().toCompletableFuture().get();
-
-            // Re-use the original connection by sending directly
-        } finally {
-            client.close().toCompletionStage().toCompletableFuture().get();
-        }
-    }
-
-    @Test
     public void testConnectionSurvivesInvalidRequestThenServesValidRequest() throws Exception {
         WebSocketClient client = vertx.createWebSocketClient();
         try {
