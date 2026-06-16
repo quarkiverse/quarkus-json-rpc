@@ -36,6 +36,10 @@ public class JsonRPCRequest {
         return jsonNode.get(ID);
     }
 
+    public boolean isNotification() {
+        return !jsonNode.has(ID);
+    }
+
     public String getJsonrpc() {
         String value = jsonNode.get(JSONRPC).asText();
         if (value != null) {
