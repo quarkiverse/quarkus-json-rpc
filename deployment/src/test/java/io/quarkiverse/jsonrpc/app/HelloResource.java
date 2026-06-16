@@ -3,6 +3,7 @@ package io.quarkiverse.jsonrpc.app;
 import java.time.Duration;
 
 import io.quarkiverse.jsonrpc.api.JsonRPCApi;
+import io.quarkiverse.jsonrpc.api.JsonRPCIgnore;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;
@@ -78,5 +79,10 @@ public class HelloResource {
     public Multi<String> helloMulti(String name, String surname) {
         return Multi.createFrom().ticks().every(Duration.ofSeconds(1))
                 .onItem().transform(n -> "(" + n + ") " + hello(name, surname));
+    }
+
+    @JsonRPCIgnore
+    public String ignoredMethod() {
+        return "This should not be exposed";
     }
 }

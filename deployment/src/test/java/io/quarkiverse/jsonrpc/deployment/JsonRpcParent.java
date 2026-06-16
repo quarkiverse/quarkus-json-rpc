@@ -30,6 +30,16 @@ public class JsonRpcParent {
     @TestHTTPResource("json-rpc")
     URI jsonRpcUri;
 
+    protected JsonObject getJsonRpcRawResponse(String providedInput) throws Exception {
+        int id = count.incrementAndGet();
+        return jsonRpcRawResponse(id, (ws, queue) -> {
+            ws.textMessageHandler(msg -> {
+                queue.add(msg);
+            });
+            ws.writeTextMessage(getJsonRPCRequest(id, providedInput, Map.of()));
+        });
+    }
+
     protected String getJsonRpcResponse(String providedInput) throws Exception {
         return getJsonRpcResponse(providedInput, String.class);
     }
@@ -65,6 +75,32 @@ public class JsonRpcParent {
             });
             ws.writeTextMessage(getJsonRPCRequest(id, providedInput, params));
         });
+    }
+
+    private JsonObject jsonRpcRawResponse(int expectedId, BiConsumer<WebSocket, Queue<String>> action)
+            throws Exception {
+        WebSocketClient client = vertx.createWebSocketClient();
+        try {
+            LinkedBlockingDeque<String> message = new LinkedBlockingDeque<>();
+            client
+                    .connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
+                    .onComplete(r -> {
+                        if (r.succeeded()) {
+                            WebSocket ws = r.result();
+                            action.accept(ws, message);
+                        } else {
+                            throw new IllegalStateException(r.cause());
+                        }
+                    });
+
+            String response = message.poll(10, TimeUnit.SECONDS);
+            JsonObject jsonResponse = Json.decodeValue(response, JsonObject.class);
+            int id = jsonResponse.getInteger("id");
+            Assertions.assertEquals(expectedId, id);
+            return jsonResponse;
+        } finally {
+            client.close().toCompletionStage().toCompletableFuture().get();
+        }
     }
 
     @SuppressWarnings("unchecked")

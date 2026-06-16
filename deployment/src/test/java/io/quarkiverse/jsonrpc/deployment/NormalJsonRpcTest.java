@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkiverse.jsonrpc.app.HelloResource;
 import io.quarkus.test.QuarkusUnitTest;
+import io.vertx.core.json.JsonObject;
 
 public class NormalJsonRpcTest extends JsonRpcParent {
 
@@ -135,6 +136,14 @@ public class NormalJsonRpcTest extends JsonRpcParent {
     public void testHelloUniBlockingWithTwoParamsPosition() throws Exception {
         String result = getJsonRpcResponse("HelloResource#helloUniBlocking", new String[] { "Christina", "Storm" });
         Assertions.assertTrue(result.startsWith("Hello Christina Storm [executor-thread-"));
+    }
+
+    @Test
+    public void testIgnoredMethodNotExposed() throws Exception {
+        JsonObject response = getJsonRpcRawResponse("HelloResource#ignoredMethod");
+        JsonObject error = response.getJsonObject("error");
+        Assertions.assertNotNull(error, "Expected an error response for ignored method");
+        Assertions.assertEquals(-32601, error.getInteger("code"));
     }
 
 }
