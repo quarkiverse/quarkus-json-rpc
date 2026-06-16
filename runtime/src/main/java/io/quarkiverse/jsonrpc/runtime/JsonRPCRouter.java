@@ -290,6 +290,7 @@ public class JsonRPCRouter {
     }
 
     private void route(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
+        boolean notification = jsonRpcRequest.isNotification();
         if (JsonRPCHotReplacementSetup.isEnabled()) {
             Vertx.currentContext().<Void> executeBlocking(() -> {
                 JsonRPCHotReplacementSetup.scan();
@@ -300,15 +301,19 @@ public class JsonRPCRouter {
                 }
                 dispatchRoute(jsonRpcRequest, s)
                         .subscribe().with(result -> {
-                            codec.writeResponse(s, result.response);
-                            result.runPostWrite();
+                            if (!notification) {
+                                codec.writeResponse(s, result.response);
+                                result.runPostWrite();
+                            }
                         });
             });
         } else {
             dispatchRoute(jsonRpcRequest, s)
                     .subscribe().with(result -> {
-                        codec.writeResponse(s, result.response);
-                        result.runPostWrite();
+                        if (!notification) {
+                            codec.writeResponse(s, result.response);
+                            result.runPostWrite();
+                        }
                     });
         }
     }
@@ -323,7 +328,12 @@ public class JsonRPCRouter {
                             new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request")))));
                 } else {
                     JsonRPCRequest request = codec.readRequest(element);
-                    unis.add(dispatchRoute(request, s));
+                    boolean notification = request.isNotification();
+                    Uni<DispatchResult> uni = dispatchRoute(request, s);
+                    if (notification) {
+                        uni = uni.map(r -> new DispatchResult(r.response, r.postWrite, true));
+                    }
+                    unis.add(uni);
                 }
             }
             Uni.join().all(unis).andCollectFailures()
@@ -332,12 +342,16 @@ public class JsonRPCRouter {
                                 List<JsonRPCResponse<?>> responses = new ArrayList<>();
                                 List<Runnable> postWrites = new ArrayList<>();
                                 for (DispatchResult result : results) {
-                                    responses.add(result.response);
-                                    if (result.postWrite != null) {
-                                        postWrites.add(result.postWrite);
+                                    if (!result.notification) {
+                                        responses.add(result.response);
+                                        if (result.postWrite != null) {
+                                            postWrites.add(result.postWrite);
+                                        }
                                     }
                                 }
-                                codec.writeBatchResponse(s, responses);
+                                if (!responses.isEmpty()) {
+                                    codec.writeBatchResponse(s, responses);
+                                }
                                 postWrites.forEach(Runnable::run);
                             },
                             failure -> {
@@ -363,9 +377,9 @@ public class JsonRPCRouter {
         }
     }
 
-    private record DispatchResult(JsonRPCResponse<?> response, Runnable postWrite) {
+    private record DispatchResult(JsonRPCResponse<?> response, Runnable postWrite, boolean notification) {
         DispatchResult(JsonRPCResponse<?> response) {
-            this(response, null);
+            this(response, null, false);
         }
 
         void runPostWrite() {
@@ -479,7 +493,7 @@ public class JsonRPCRouter {
                 };
 
                 JsonRPCResponse<?> ack = new JsonRPCResponse<>(jsonRpcRequest.getId(), (Object) subscriptionId);
-                return Uni.createFrom().item(new DispatchResult(ack, startSubscription));
+                return Uni.createFrom().item(new DispatchResult(ack, startSubscription, false));
             } else {
                 Uni<?> uni;
                 try {
