@@ -32,8 +32,8 @@ public class JsonRPCRequest {
         this.paramOption = parametersProvidedAs();
     }
 
-    public int getId() {
-        return jsonNode.get(ID).asInt();
+    public JsonNode getId() {
+        return jsonNode.get(ID);
     }
 
     public String getJsonrpc() {

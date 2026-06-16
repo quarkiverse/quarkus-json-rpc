@@ -30,15 +30,6 @@ public class JsonRPCCodec {
         return new JsonRPCRequest(objectMapper, jsonNode);
     }
 
-    public JsonRPCRequest readRequest(String json) {
-        try {
-            JsonNode jsonNode = objectMapper.readTree(json);
-            return new JsonRPCRequest(objectMapper, jsonNode);
-        } catch (JsonProcessingException ex) {
-            throw new RuntimeException(ex);
-        }
-    }
-
     public void writeResponse(ServerWebSocket socket, JsonRPCResponse<?> response) {
         try {
             socket.writeTextMessage(objectMapper.writeValueAsString(response));
