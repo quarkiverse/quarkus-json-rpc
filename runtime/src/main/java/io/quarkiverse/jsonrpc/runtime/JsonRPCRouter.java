@@ -240,30 +240,45 @@ public class JsonRPCRouter {
             socketIdentities.put(socket, identity);
         }
         socket.textMessageHandler((e) -> {
-            JsonNode jsonNode;
             try {
-                jsonNode = codec.parseJson(e);
-            } catch (JsonProcessingException ex) {
-                codec.writeResponse(socket,
-                        new JsonRPCResponse<>(NullNode.instance,
-                                new JsonRPCResponse.Error(JsonRPCKeys.PARSE_ERROR, "Parse error")));
-                return;
-            }
-
-            if (jsonNode.isArray()) {
-                if (jsonNode.isEmpty()) {
-                    codec.writeResponse(socket, new JsonRPCResponse<>(NullNode.instance,
-                            new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request: empty batch")));
+                JsonNode jsonNode;
+                try {
+                    jsonNode = codec.parseJson(e);
+                } catch (JsonProcessingException ex) {
+                    codec.writeResponse(socket,
+                            new JsonRPCResponse<>(NullNode.instance,
+                                    new JsonRPCResponse.Error(JsonRPCKeys.PARSE_ERROR, "Parse error")));
                     return;
                 }
-                List<JsonNode> elements = new ArrayList<>();
-                for (JsonNode element : jsonNode) {
-                    elements.add(element);
+
+                if (jsonNode.isArray()) {
+                    if (jsonNode.isEmpty()) {
+                        codec.writeResponse(socket, new JsonRPCResponse<>(NullNode.instance,
+                                new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST,
+                                        "Invalid request: empty batch")));
+                        return;
+                    }
+                    List<JsonNode> elements = new ArrayList<>();
+                    for (JsonNode element : jsonNode) {
+                        elements.add(element);
+                    }
+                    routeBatch(elements, socket);
+                } else {
+                    if (!jsonNode.isObject() || !jsonNode.has(JsonRPCKeys.METHOD)) {
+                        JsonNode id = jsonNode.isObject() && jsonNode.has(JsonRPCKeys.ID)
+                                ? jsonNode.get(JsonRPCKeys.ID)
+                                : NullNode.instance;
+                        codec.writeResponse(socket, new JsonRPCResponse<>(id,
+                                new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request")));
+                        return;
+                    }
+                    JsonRPCRequest jsonRpcRequest = codec.readRequest(jsonNode);
+                    route(jsonRpcRequest, socket);
                 }
-                routeBatch(elements, socket);
-            } else {
-                JsonRPCRequest jsonRpcRequest = codec.readRequest(jsonNode);
-                route(jsonRpcRequest, socket);
+            } catch (Exception ex) {
+                LOG.errorf(ex, "Unexpected error processing JSON-RPC message");
+                codec.writeResponse(socket, new JsonRPCResponse<>(NullNode.instance,
+                        new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR, "Internal error")));
             }
         });
         socket.closeHandler((e) -> {
