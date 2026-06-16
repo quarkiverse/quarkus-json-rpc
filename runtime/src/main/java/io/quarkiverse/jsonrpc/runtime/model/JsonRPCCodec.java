@@ -1,6 +1,7 @@
 package io.quarkiverse.jsonrpc.runtime.model;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.jboss.logging.Logger;
@@ -21,6 +22,14 @@ public class JsonRPCCodec {
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
     }
 
+    public JsonNode parseJson(String json) throws JsonProcessingException {
+        return objectMapper.readTree(json);
+    }
+
+    public JsonRPCRequest readRequest(JsonNode jsonNode) {
+        return new JsonRPCRequest(objectMapper, jsonNode);
+    }
+
     public JsonRPCRequest readRequest(String json) {
         try {
             JsonNode jsonNode = objectMapper.readTree(json);
@@ -30,36 +39,20 @@ public class JsonRPCCodec {
         }
     }
 
-    public void writeResponse(ServerWebSocket socket, int id, Object object) {
-        writeResponse(socket, new JsonRPCResponse(id, object));
-    }
-
-    public void writeMethodNotFoundResponse(ServerWebSocket socket, int id, String jsonRpcMethodName) {
-        writeResponse(socket, new JsonRPCResponse(id,
-                new JsonRPCResponse.Error(JsonRPCKeys.METHOD_NOT_FOUND, "Method [" + jsonRpcMethodName + "] not found")));
-    }
-
-    public void writeErrorResponse(ServerWebSocket socket, int id, String jsonRpcMethodName, Throwable exception) {
-        int code = resolveErrorCode(exception);
-        writeErrorResponse(socket, id, code, jsonRpcMethodName, exception);
-    }
-
-    private int resolveErrorCode(Throwable exception) {
-        if (exception instanceof io.quarkus.security.UnauthorizedException) {
-            return JsonRPCKeys.UNAUTHORIZED;
+    public void writeResponse(ServerWebSocket socket, JsonRPCResponse<?> response) {
+        try {
+            socket.writeTextMessage(objectMapper.writeValueAsString(response));
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
         }
-        if (exception instanceof io.quarkus.security.ForbiddenException) {
-            return JsonRPCKeys.FORBIDDEN;
-        }
-        return JsonRPCKeys.INTERNAL_ERROR;
     }
 
-    public void writeErrorResponse(ServerWebSocket socket, int id, int code, String jsonRpcMethodName,
-            Throwable exception) {
-        LOG.error("Error in JsonRPC Call", exception);
-        writeResponse(socket, new JsonRPCResponse(id,
-                new JsonRPCResponse.Error(code,
-                        "Method [" + jsonRpcMethodName + "] failed: " + exception.getMessage())));
+    public void writeBatchResponse(ServerWebSocket socket, List<JsonRPCResponse<?>> responses) {
+        try {
+            socket.writeTextMessage(objectMapper.writeValueAsString(responses));
+        } catch (JsonProcessingException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     public void writeSubscriptionItem(ServerWebSocket socket, String subscriptionId, Object item) {
@@ -87,14 +80,6 @@ public class JsonRPCCodec {
         params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
         params.put(JsonRPCKeys.COMPLETE, true);
         writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
-    }
-
-    private void writeResponse(ServerWebSocket socket, JsonRPCResponse response) {
-        try {
-            socket.writeTextMessage(objectMapper.writeValueAsString(response));
-        } catch (JsonProcessingException ex) {
-            throw new RuntimeException(ex);
-        }
     }
 
     public void writeNotification(ServerWebSocket socket, JsonRPCNotification notification) {

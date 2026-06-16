@@ -17,12 +17,16 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.logging.Logger;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+
 import io.quarkiverse.jsonrpc.runtime.model.ExecutionMode;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCRequest;
+import io.quarkiverse.jsonrpc.runtime.model.JsonRPCResponse;
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.ManagedContext;
 import io.quarkus.security.identity.CurrentIdentityAssociation;
@@ -235,8 +239,30 @@ public class JsonRPCRouter {
             socketIdentities.put(socket, identity);
         }
         socket.textMessageHandler((e) -> {
-            JsonRPCRequest jsonRpcRequest = codec.readRequest(e);
-            route(jsonRpcRequest, socket);
+            JsonNode jsonNode;
+            try {
+                jsonNode = codec.parseJson(e);
+            } catch (JsonProcessingException ex) {
+                codec.writeResponse(socket,
+                        new JsonRPCResponse<>(0, new JsonRPCResponse.Error(JsonRPCKeys.PARSE_ERROR, "Parse error")));
+                return;
+            }
+
+            if (jsonNode.isArray()) {
+                if (jsonNode.isEmpty()) {
+                    codec.writeResponse(socket, new JsonRPCResponse<>(0,
+                            new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request: empty batch")));
+                    return;
+                }
+                List<JsonNode> elements = new ArrayList<>();
+                for (JsonNode element : jsonNode) {
+                    elements.add(element);
+                }
+                routeBatch(elements, socket);
+            } else {
+                JsonRPCRequest jsonRpcRequest = codec.readRequest(jsonNode);
+                route(jsonRpcRequest, socket);
+            }
         });
         socket.closeHandler((e) -> {
             sessions.removeSession(socket);
@@ -270,19 +296,88 @@ public class JsonRPCRouter {
                 if (ar.failed()) {
                     LOG.warnf(ar.cause(), "JSON-RPC hot reload scan failed");
                 }
-                dispatchRoute(jsonRpcRequest, s);
+                dispatchRoute(jsonRpcRequest, s)
+                        .subscribe().with(result -> {
+                            codec.writeResponse(s, result.response);
+                            result.runPostWrite();
+                        });
             });
         } else {
-            dispatchRoute(jsonRpcRequest, s);
+            dispatchRoute(jsonRpcRequest, s)
+                    .subscribe().with(result -> {
+                        codec.writeResponse(s, result.response);
+                        result.runPostWrite();
+                    });
+        }
+    }
+
+    private void routeBatch(List<JsonNode> elements, ServerWebSocket s) {
+        Runnable dispatch = () -> {
+            List<Uni<DispatchResult>> unis = new ArrayList<>();
+            for (JsonNode element : elements) {
+                if (!element.isObject() || !element.has(JsonRPCKeys.METHOD)) {
+                    int id = element.has(JsonRPCKeys.ID) ? element.get(JsonRPCKeys.ID).asInt(0) : 0;
+                    unis.add(Uni.createFrom().item(new DispatchResult(new JsonRPCResponse<>(id,
+                            new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request")))));
+                } else {
+                    JsonRPCRequest request = codec.readRequest(element);
+                    unis.add(dispatchRoute(request, s));
+                }
+            }
+            Uni.join().all(unis).andCollectFailures()
+                    .subscribe().with(
+                            results -> {
+                                List<JsonRPCResponse<?>> responses = new ArrayList<>();
+                                List<Runnable> postWrites = new ArrayList<>();
+                                for (DispatchResult result : results) {
+                                    responses.add(result.response);
+                                    if (result.postWrite != null) {
+                                        postWrites.add(result.postWrite);
+                                    }
+                                }
+                                codec.writeBatchResponse(s, responses);
+                                postWrites.forEach(Runnable::run);
+                            },
+                            failure -> {
+                                LOG.errorf(failure, "Unexpected error processing batch request");
+                                codec.writeResponse(s, new JsonRPCResponse<>(0,
+                                        new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR,
+                                                "Internal error processing batch")));
+                            });
+        };
+
+        if (JsonRPCHotReplacementSetup.isEnabled()) {
+            Vertx.currentContext().<Void> executeBlocking(() -> {
+                JsonRPCHotReplacementSetup.scan();
+                return null;
+            }).onComplete(ar -> {
+                if (ar.failed()) {
+                    LOG.warnf(ar.cause(), "JSON-RPC hot reload scan failed");
+                }
+                dispatch.run();
+            });
+        } else {
+            dispatch.run();
+        }
+    }
+
+    private record DispatchResult(JsonRPCResponse<?> response, Runnable postWrite) {
+        DispatchResult(JsonRPCResponse<?> response) {
+            this(response, null);
+        }
+
+        void runPostWrite() {
+            if (postWrite != null) {
+                postWrite.run();
+            }
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void dispatchRoute(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
-        // Handle unsubscribe requests before normal method lookup
+    private Uni<DispatchResult> dispatchRoute(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
         if (JsonRPCKeys.UNSUBSCRIBE.equals(jsonRpcRequest.getMethod())) {
-            handleUnsubscribe(jsonRpcRequest, s);
-            return;
+            return handleUnsubscribe(jsonRpcRequest, s)
+                    .map(DispatchResult::new);
         }
 
         String key = Keys.createKey(jsonRpcRequest);
@@ -329,8 +424,8 @@ public class JsonRPCRouter {
                     }
                     LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", methodName,
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), methodName, unwrap(e));
-                    return;
+                    return Uni.createFrom()
+                            .item(new DispatchResult(errorResponse(jsonRpcRequest.getId(), methodName, unwrap(e))));
                 } finally {
                     if (activated) {
                         requestContext.deactivate();
@@ -345,41 +440,45 @@ public class JsonRPCRouter {
                 Map<String, Cancellable> subs = this.socketSubscriptions.computeIfAbsent(s,
                         k -> new ConcurrentHashMap<>());
 
-                // Use AtomicReference so cancel always targets the real cancellable,
-                // even if unsubscribe arrives before subscribe() returns
                 AtomicReference<Cancellable> ref = new AtomicReference<>(() -> {
                 });
                 subs.put(subscriptionId, () -> ref.get().cancel());
 
-                // Send ack before subscribing so client has subscription ID before items arrive
-                codec.writeResponse(s, jsonRpcRequest.getId(), subscriptionId);
-
+                final Multi<?> streamSource = multi;
                 if (m != null) {
-                    m.subscriptionStarted();
+                    m.recordSuccess(methodName, System.nanoTime() - startNanos);
                 }
 
-                Cancellable cancellable = multi.subscribe()
-                        .with(
-                                item -> codec.writeSubscriptionItem(s, subscriptionId, item),
-                                failure -> {
-                                    if (m != null) {
-                                        m.recordSubscriptionError(methodName);
-                                        m.subscriptionEnded();
-                                    }
-                                    codec.writeSubscriptionError(s, subscriptionId, methodName, unwrap(failure));
-                                    subs.remove(subscriptionId);
-                                },
-                                () -> {
-                                    if (m != null) {
-                                        m.subscriptionEnded();
-                                    }
-                                    codec.writeSubscriptionComplete(s, subscriptionId);
-                                    subs.remove(subscriptionId);
-                                });
+                // Defer Multi subscription until after the ack response is written,
+                // so synchronous Multi items don't arrive before the subscription ID
+                Runnable startSubscription = () -> {
+                    if (m != null) {
+                        m.subscriptionStarted();
+                    }
+                    Cancellable cancellable = streamSource.subscribe()
+                            .with(
+                                    item -> codec.writeSubscriptionItem(s, subscriptionId, item),
+                                    failure -> {
+                                        if (m != null) {
+                                            m.recordSubscriptionError(methodName);
+                                            m.subscriptionEnded();
+                                        }
+                                        codec.writeSubscriptionError(s, subscriptionId, methodName, unwrap(failure));
+                                        subs.remove(subscriptionId);
+                                    },
+                                    () -> {
+                                        if (m != null) {
+                                            m.subscriptionEnded();
+                                        }
+                                        codec.writeSubscriptionComplete(s, subscriptionId);
+                                        subs.remove(subscriptionId);
+                                    });
+                    ref.set(cancellable);
+                };
 
-                ref.set(cancellable);
+                JsonRPCResponse<?> ack = new JsonRPCResponse<>(jsonRpcRequest.getId(), (Object) subscriptionId);
+                return Uni.createFrom().item(new DispatchResult(ack, startSubscription));
             } else {
-                // The invocation will return a Uni<JsonObject>
                 Uni<?> uni;
                 try {
                     if (jsonRpcRequest.hasParams()) {
@@ -394,29 +493,49 @@ public class JsonRPCRouter {
                     }
                     LOG.errorf(e, "Unable to invoke method %s using JSON-RPC, request was: %s", methodName,
                             jsonRpcRequest);
-                    codec.writeErrorResponse(s, jsonRpcRequest.getId(), methodName, unwrap(e));
-                    return;
+                    return Uni.createFrom()
+                            .item(new DispatchResult(errorResponse(jsonRpcRequest.getId(), methodName, unwrap(e))));
                 }
-                uni.subscribe()
-                        .with(item -> {
+                return uni
+                        .<DispatchResult> map(item -> {
                             if (m != null) {
                                 m.recordSuccess(methodName, System.nanoTime() - startNanos);
                             }
-                            codec.writeResponse(s, jsonRpcRequest.getId(), item);
-                        }, failure -> {
+                            return new DispatchResult(new JsonRPCResponse<>(jsonRpcRequest.getId(), item));
+                        })
+                        .onFailure().recoverWithItem(failure -> {
                             if (m != null) {
                                 m.recordError(methodName, System.nanoTime() - startNanos);
                             }
-                            codec.writeErrorResponse(s, jsonRpcRequest.getId(), methodName, unwrap(failure));
+                            return new DispatchResult(
+                                    errorResponse(jsonRpcRequest.getId(), methodName, unwrap(failure)));
                         });
             }
         } else {
-            // Method not found
-            codec.writeMethodNotFoundResponse(s, jsonRpcRequest.getId(), jsonRpcRequest.getMethod());
+            return Uni.createFrom().item(new DispatchResult(new JsonRPCResponse<>(jsonRpcRequest.getId(),
+                    new JsonRPCResponse.Error(JsonRPCKeys.METHOD_NOT_FOUND,
+                            "Method [" + jsonRpcRequest.getMethod() + "] not found"))));
         }
     }
 
-    private void handleUnsubscribe(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
+    private static JsonRPCResponse<?> errorResponse(int id, String methodName, Throwable exception) {
+        int code = resolveErrorCode(exception);
+        LOG.error("Error in JsonRPC Call", exception);
+        return new JsonRPCResponse<>(id,
+                new JsonRPCResponse.Error(code, "Method [" + methodName + "] failed: " + exception.getMessage()));
+    }
+
+    private static int resolveErrorCode(Throwable exception) {
+        if (exception instanceof io.quarkus.security.UnauthorizedException) {
+            return JsonRPCKeys.UNAUTHORIZED;
+        }
+        if (exception instanceof io.quarkus.security.ForbiddenException) {
+            return JsonRPCKeys.FORBIDDEN;
+        }
+        return JsonRPCKeys.INTERNAL_ERROR;
+    }
+
+    private Uni<JsonRPCResponse<?>> handleUnsubscribe(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
         String subscriptionId = null;
         if (jsonRpcRequest.hasPositionedParams()) {
             Object[] params = jsonRpcRequest.getPositionedParams();
@@ -428,9 +547,10 @@ public class JsonRPCRouter {
         }
 
         if (subscriptionId == null) {
-            codec.writeErrorResponse(s, jsonRpcRequest.getId(), JsonRPCKeys.INVALID_PARAMS, JsonRPCKeys.UNSUBSCRIBE,
-                    new IllegalArgumentException("Missing required parameter: subscription ID"));
-            return;
+            return Uni.createFrom().item(new JsonRPCResponse<>(jsonRpcRequest.getId(),
+                    new JsonRPCResponse.Error(JsonRPCKeys.INVALID_PARAMS,
+                            "Method [" + JsonRPCKeys.UNSUBSCRIBE
+                                    + "] failed: Missing required parameter: subscription ID")));
         }
 
         Map<String, Cancellable> subs = socketSubscriptions.get(s);
@@ -442,11 +562,10 @@ public class JsonRPCRouter {
                 if (m != null) {
                     m.subscriptionEnded();
                 }
-                codec.writeResponse(s, jsonRpcRequest.getId(), true);
-                return;
+                return Uni.createFrom().item(new JsonRPCResponse<>(jsonRpcRequest.getId(), (Object) true));
             }
         }
-        codec.writeResponse(s, jsonRpcRequest.getId(), false);
+        return Uni.createFrom().item(new JsonRPCResponse<>(jsonRpcRequest.getId(), (Object) false));
     }
 
     private static Throwable unwrap(Throwable failure) {

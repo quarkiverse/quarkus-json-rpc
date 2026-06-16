@@ -88,6 +88,10 @@ public class MetricsJsonRpcTest {
                     });
             WebSocket ws = connected.get(5, TimeUnit.SECONDS);
 
+            long openDeadline = System.currentTimeMillis() + 5000;
+            while (gauge.value() <= before && System.currentTimeMillis() < openDeadline) {
+                Thread.sleep(50);
+            }
             Assertions.assertTrue(gauge.value() > before,
                     "Gauge should increase when a connection is opened");
 
