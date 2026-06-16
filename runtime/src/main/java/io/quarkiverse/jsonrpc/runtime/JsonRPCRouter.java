@@ -254,11 +254,11 @@ public class JsonRPCRouter {
                             new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request: empty batch")));
                     return;
                 }
-                List<JsonRPCRequest> requests = new ArrayList<>();
+                List<JsonNode> elements = new ArrayList<>();
                 for (JsonNode element : jsonNode) {
-                    requests.add(codec.readRequest(element));
+                    elements.add(element);
                 }
-                routeBatch(requests, socket);
+                routeBatch(elements, socket);
             } else {
                 JsonRPCRequest jsonRpcRequest = codec.readRequest(jsonNode);
                 route(jsonRpcRequest, socket);
@@ -311,11 +311,18 @@ public class JsonRPCRouter {
         }
     }
 
-    private void routeBatch(List<JsonRPCRequest> requests, ServerWebSocket s) {
+    private void routeBatch(List<JsonNode> elements, ServerWebSocket s) {
         Runnable dispatch = () -> {
             List<Uni<DispatchResult>> unis = new ArrayList<>();
-            for (JsonRPCRequest request : requests) {
-                unis.add(dispatchRoute(request, s));
+            for (JsonNode element : elements) {
+                if (!element.isObject() || !element.has(JsonRPCKeys.METHOD)) {
+                    int id = element.has(JsonRPCKeys.ID) ? element.get(JsonRPCKeys.ID).asInt(0) : 0;
+                    unis.add(Uni.createFrom().item(new DispatchResult(new JsonRPCResponse<>(id,
+                            new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request")))));
+                } else {
+                    JsonRPCRequest request = codec.readRequest(element);
+                    unis.add(dispatchRoute(request, s));
+                }
             }
             Uni.join().all(unis).andCollectFailures()
                     .subscribe().with(
@@ -331,7 +338,12 @@ public class JsonRPCRouter {
                                 codec.writeBatchResponse(s, responses);
                                 postWrites.forEach(Runnable::run);
                             },
-                            failure -> LOG.errorf(failure, "Unexpected error processing batch request"));
+                            failure -> {
+                                LOG.errorf(failure, "Unexpected error processing batch request");
+                                codec.writeResponse(s, new JsonRPCResponse<>(0,
+                                        new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR,
+                                                "Internal error processing batch")));
+                            });
         };
 
         if (JsonRPCHotReplacementSetup.isEnabled()) {

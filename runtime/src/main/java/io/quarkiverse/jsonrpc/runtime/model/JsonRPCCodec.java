@@ -55,39 +55,6 @@ public class JsonRPCCodec {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    public void writeResponse(ServerWebSocket socket, int id, Object object) {
-        writeResponse(socket, (JsonRPCResponse<?>) new JsonRPCResponse<>(id, object));
-    }
-
-    public void writeMethodNotFoundResponse(ServerWebSocket socket, int id, String jsonRpcMethodName) {
-        writeResponse(socket, new JsonRPCResponse<>(id,
-                new JsonRPCResponse.Error(JsonRPCKeys.METHOD_NOT_FOUND, "Method [" + jsonRpcMethodName + "] not found")));
-    }
-
-    public void writeErrorResponse(ServerWebSocket socket, int id, String jsonRpcMethodName, Throwable exception) {
-        int code = resolveErrorCode(exception);
-        writeErrorResponse(socket, id, code, jsonRpcMethodName, exception);
-    }
-
-    private int resolveErrorCode(Throwable exception) {
-        if (exception instanceof io.quarkus.security.UnauthorizedException) {
-            return JsonRPCKeys.UNAUTHORIZED;
-        }
-        if (exception instanceof io.quarkus.security.ForbiddenException) {
-            return JsonRPCKeys.FORBIDDEN;
-        }
-        return JsonRPCKeys.INTERNAL_ERROR;
-    }
-
-    public void writeErrorResponse(ServerWebSocket socket, int id, int code, String jsonRpcMethodName,
-            Throwable exception) {
-        LOG.error("Error in JsonRPC Call", exception);
-        writeResponse(socket, new JsonRPCResponse<>(id,
-                new JsonRPCResponse.Error(code,
-                        "Method [" + jsonRpcMethodName + "] failed: " + exception.getMessage())));
-    }
-
     public void writeSubscriptionItem(ServerWebSocket socket, String subscriptionId, Object item) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);

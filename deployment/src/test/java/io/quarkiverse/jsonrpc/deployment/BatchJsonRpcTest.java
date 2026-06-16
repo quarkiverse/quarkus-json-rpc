@@ -1,6 +1,9 @@
 package io.quarkiverse.jsonrpc.deployment;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 
@@ -11,9 +14,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkiverse.jsonrpc.app.HelloResource;
+import io.quarkiverse.jsonrpc.app.MultiResource;
 import io.quarkus.test.QuarkusUnitTest;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -23,7 +28,7 @@ public class BatchJsonRpcTest {
     @RegisterExtension
     public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
-                root.addClasses(HelloResource.class);
+                root.addClasses(HelloResource.class, MultiResource.class);
             });
 
     @Inject
@@ -118,6 +123,118 @@ public class BatchJsonRpcTest {
         JsonObject response = new JsonObject(rawResponse);
         Assertions.assertNotNull(response.getJsonObject("error"));
         Assertions.assertEquals(-32700, response.getJsonObject("error").getInteger("code"));
+    }
+
+    @Test
+    public void testBatchWithMultiStreaming() throws Exception {
+        WebSocketClient client = vertx.createWebSocketClient();
+        try {
+            LinkedBlockingDeque<String> messages = new LinkedBlockingDeque<>();
+            CompletableFuture<WebSocket> connected = new CompletableFuture<>();
+
+            JsonArray batch = new JsonArray()
+                    .add(JsonObject.of("jsonrpc", "2.0", "id", 1, "method", "HelloResource#hello"))
+                    .add(JsonObject.of("jsonrpc", "2.0", "id", 2, "method", "MultiResource#items"));
+
+            client.connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
+                    .onComplete(r -> {
+                        if (r.succeeded()) {
+                            var ws = r.result();
+                            ws.textMessageHandler(messages::add);
+                            ws.writeTextMessage(batch.encode());
+                            connected.complete(ws);
+                        } else {
+                            connected.completeExceptionally(r.cause());
+                        }
+                    });
+
+            connected.get(5, TimeUnit.SECONDS);
+
+            // First message: the batch response array containing both results
+            String batchMsg = messages.poll(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(batchMsg, "Expected batch response");
+            JsonArray responses = new JsonArray(batchMsg);
+            Assertions.assertEquals(2, responses.size());
+
+            JsonObject r1 = findById(responses, 1);
+            Assertions.assertNotNull(r1, "Response with id=1 not found");
+            Assertions.assertTrue(r1.getString("result").startsWith("Hello ["));
+
+            JsonObject r2 = findById(responses, 2);
+            Assertions.assertNotNull(r2, "Response with id=2 not found");
+            String subscriptionId = r2.getString("result");
+            Assertions.assertNotNull(subscriptionId, "Multi ack should contain a subscription ID");
+
+            // Subsequent messages: subscription item notifications delivered individually
+            List<String> items = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                String msg = messages.poll(10, TimeUnit.SECONDS);
+                Assertions.assertNotNull(msg, "Expected item notification " + i);
+                JsonObject json = new JsonObject(msg);
+                Assertions.assertEquals("2.0", json.getString("jsonrpc"));
+                Assertions.assertFalse(json.containsKey("id"), "Notification must not have an id");
+                Assertions.assertEquals("subscription", json.getString("method"));
+                JsonObject params = json.getJsonObject("params");
+                Assertions.assertEquals(subscriptionId, params.getString("subscription"));
+                items.add(params.getString("result"));
+            }
+            Assertions.assertEquals(List.of("item-0", "item-1", "item-2"), items);
+
+            // Completion notification
+            String completeMsg = messages.poll(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(completeMsg, "Expected completion notification");
+            JsonObject complete = new JsonObject(completeMsg);
+            Assertions.assertEquals("subscription", complete.getString("method"));
+            JsonObject completeParams = complete.getJsonObject("params");
+            Assertions.assertEquals(subscriptionId, completeParams.getString("subscription"));
+            Assertions.assertTrue(completeParams.getBoolean("complete"));
+        } finally {
+            client.close().toCompletionStage().toCompletableFuture().get();
+        }
+    }
+
+    @Test
+    public void testBatchWithInvalidElement() throws Exception {
+        // A batch where one element is a bare number (valid JSON but not a valid JSON-RPC request)
+        String rawBatch = "[42, {\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"HelloResource#hello\"}]";
+
+        WebSocketClient client = vertx.createWebSocketClient();
+        try {
+            LinkedBlockingDeque<String> queue = new LinkedBlockingDeque<>();
+            client.connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
+                    .onComplete(r -> {
+                        if (r.succeeded()) {
+                            r.result().textMessageHandler(queue::add);
+                            r.result().writeTextMessage(rawBatch);
+                        } else {
+                            throw new IllegalStateException(r.cause());
+                        }
+                    });
+            String response = queue.poll(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(response, "No response received within timeout");
+
+            JsonArray responses = new JsonArray(response);
+            Assertions.assertEquals(2, responses.size());
+
+            // One response should be an error for the invalid element
+            boolean hasInvalidRequestError = false;
+            boolean hasSuccessResult = false;
+            for (int i = 0; i < responses.size(); i++) {
+                JsonObject obj = responses.getJsonObject(i);
+                if (obj.getJsonObject("error") != null
+                        && obj.getJsonObject("error").getInteger("code") == -32600) {
+                    hasInvalidRequestError = true;
+                }
+                if (obj.getString("result") != null
+                        && obj.getString("result").startsWith("Hello [")) {
+                    hasSuccessResult = true;
+                }
+            }
+            Assertions.assertTrue(hasInvalidRequestError, "Expected an invalid request error for the bare number");
+            Assertions.assertTrue(hasSuccessResult, "Expected a success result for the valid request");
+        } finally {
+            client.close().toCompletionStage().toCompletableFuture().get();
+        }
     }
 
     private JsonArray sendBatch(JsonArray batch) throws Exception {
