@@ -19,6 +19,7 @@ import org.jboss.logging.Logger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.NullNode;
 
 import io.quarkiverse.jsonrpc.runtime.model.ExecutionMode;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
@@ -244,13 +245,14 @@ public class JsonRPCRouter {
                 jsonNode = codec.parseJson(e);
             } catch (JsonProcessingException ex) {
                 codec.writeResponse(socket,
-                        new JsonRPCResponse<>(0, new JsonRPCResponse.Error(JsonRPCKeys.PARSE_ERROR, "Parse error")));
+                        new JsonRPCResponse<>(NullNode.instance,
+                                new JsonRPCResponse.Error(JsonRPCKeys.PARSE_ERROR, "Parse error")));
                 return;
             }
 
             if (jsonNode.isArray()) {
                 if (jsonNode.isEmpty()) {
-                    codec.writeResponse(socket, new JsonRPCResponse<>(0,
+                    codec.writeResponse(socket, new JsonRPCResponse<>(NullNode.instance,
                             new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request: empty batch")));
                     return;
                 }
@@ -316,7 +318,7 @@ public class JsonRPCRouter {
             List<Uni<DispatchResult>> unis = new ArrayList<>();
             for (JsonNode element : elements) {
                 if (!element.isObject() || !element.has(JsonRPCKeys.METHOD)) {
-                    int id = element.has(JsonRPCKeys.ID) ? element.get(JsonRPCKeys.ID).asInt(0) : 0;
+                    JsonNode id = element.has(JsonRPCKeys.ID) ? element.get(JsonRPCKeys.ID) : NullNode.instance;
                     unis.add(Uni.createFrom().item(new DispatchResult(new JsonRPCResponse<>(id,
                             new JsonRPCResponse.Error(JsonRPCKeys.INVALID_REQUEST, "Invalid request")))));
                 } else {
@@ -340,7 +342,7 @@ public class JsonRPCRouter {
                             },
                             failure -> {
                                 LOG.errorf(failure, "Unexpected error processing batch request");
-                                codec.writeResponse(s, new JsonRPCResponse<>(0,
+                                codec.writeResponse(s, new JsonRPCResponse<>(NullNode.instance,
                                         new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR,
                                                 "Internal error processing batch")));
                             });
@@ -518,7 +520,7 @@ public class JsonRPCRouter {
         }
     }
 
-    private static JsonRPCResponse<?> errorResponse(int id, String methodName, Throwable exception) {
+    private static JsonRPCResponse<?> errorResponse(JsonNode id, String methodName, Throwable exception) {
         int code = resolveErrorCode(exception);
         LOG.error("Error in JsonRPC Call", exception);
         return new JsonRPCResponse<>(id,

@@ -1,19 +1,20 @@
 package io.quarkiverse.jsonrpc.runtime.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 public class JsonRPCResponse<T> {
 
-    // Public for serialization
-    public final int id;
+    public final JsonNode id;
     public final T result;
     public final Error error;
 
-    public JsonRPCResponse(int id, T result) {
+    public JsonRPCResponse(JsonNode id, T result) {
         this.id = id;
         this.result = result;
         this.error = null;
     }
 
-    public JsonRPCResponse(int id, Error error) {
+    public JsonRPCResponse(JsonNode id, Error error) {
         this.id = id;
         this.result = null;
         this.error = error;
