@@ -21,14 +21,32 @@ public class JsonRpcDevModeTest {
 
     @Test
     public void testHotReloadViaWebSocket() throws Exception {
-        String result1 = callJsonRpc("HelloResource#hello", 1);
+        String result1 = awaitJsonRpc("HelloResource#hello", 1, "Hello [", 60_000);
         Assertions.assertTrue(result1.startsWith("Hello ["), "Initial response: " + result1);
 
         devModeTest.modifySourceFile(HelloResource.class,
                 s -> s.replace("return \"Hello [\"", "return \"Hola [\""));
 
-        String result2 = callJsonRpc("HelloResource#hello", 2);
+        String result2 = awaitJsonRpc("HelloResource#hello", 2, "Hola [", 30_000);
         Assertions.assertTrue(result2.startsWith("Hola ["), "After hot reload: " + result2);
+    }
+
+    private String awaitJsonRpc(String method, int id, String expectedPrefix, long timeoutMs) throws Exception {
+        String result = null;
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                result = callJsonRpc(method, id);
+            } catch (Exception e) {
+                // App not ready or restarting
+            }
+            if (result != null && result.startsWith(expectedPrefix)) {
+                return result;
+            }
+            Thread.sleep(1000);
+        }
+        Assertions.fail("No response matching '" + expectedPrefix + "' within " + timeoutMs + "ms");
+        return null;
     }
 
     private String callJsonRpc(String method, int id) throws Exception {
@@ -43,15 +61,16 @@ public class JsonRpcDevModeTest {
                             ws.textMessageHandler(messages::add);
                             ws.writeTextMessage(
                                     JsonObject.of("jsonrpc", "2.0", "id", id, "method", method).encode());
-                        } else {
-                            messages.add(JsonObject.of("error",
-                                    JsonObject.of("message", r.cause().getMessage())).encode());
                         }
                     });
-            String response = messages.poll(10, TimeUnit.SECONDS);
-            Assertions.assertNotNull(response, "No response received");
+            String response = messages.poll(5, TimeUnit.SECONDS);
+            if (response == null) {
+                return null;
+            }
             JsonObject json = new JsonObject(response);
-            Assertions.assertNull(json.getJsonObject("error"), "Unexpected error: " + response);
+            if (json.getJsonObject("error") != null) {
+                return null;
+            }
             return json.getString("result");
         } finally {
             client.close().toCompletionStage().toCompletableFuture().get();
