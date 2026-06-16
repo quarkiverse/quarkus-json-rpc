@@ -433,16 +433,21 @@ public class JsonRPCProcessor {
 
     private boolean isVoidReturnType(JsonRPCMethod method) {
         int paramCount = method.hasParams() ? method.getParams().size() : 0;
+        java.lang.reflect.Method m = findMethod(method.getClazz(), method.getMethodName(), paramCount);
+        return m != null && m.getReturnType() == void.class;
+    }
+
+    private java.lang.reflect.Method findMethod(Class<?> clazz, String methodName, int paramCount) {
         try {
-            for (java.lang.reflect.Method m : method.getClazz().getMethods()) {
-                if (m.getName().equals(method.getMethodName()) && m.getParameterCount() == paramCount) {
-                    return m.getReturnType() == void.class;
+            for (java.lang.reflect.Method m : clazz.getMethods()) {
+                if (m.getName().equals(methodName) && m.getParameterCount() == paramCount) {
+                    return m;
                 }
             }
         } catch (Exception e) {
-            LOG.debugf(e, "Failed to inspect return type of %s.%s", method.getClazz().getName(), method.getMethodName());
+            LOG.debugf(e, "Failed to inspect method %s.%s", clazz.getName(), methodName);
         }
-        return false;
+        return null;
     }
 
     private String jsClientMethod(JsonRPCMethod method) {

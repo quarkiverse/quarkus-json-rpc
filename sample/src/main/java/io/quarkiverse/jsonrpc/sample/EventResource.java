@@ -1,16 +1,16 @@
 package io.quarkiverse.jsonrpc.sample;
 
-import java.util.logging.Logger;
+import org.jboss.logging.Logger;
 
 import io.quarkiverse.jsonrpc.api.JsonRPCApi;
 
 @JsonRPCApi
 public class EventResource {
 
-    private static final Logger LOG = Logger.getLogger(EventResource.class.getName());
+    private static final Logger LOG = Logger.getLogger(EventResource.class);
 
     public void trackEvent(String name) {
-        LOG.info("Event tracked: " + name);
+        LOG.infof("Event tracked: %s", name);
     }
 
     public void ping() {
