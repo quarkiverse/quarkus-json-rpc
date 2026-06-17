@@ -62,7 +62,6 @@ public class JsonRPCRouter {
     private volatile boolean identityAssociationUnavailable;
 
     private volatile List<JsonRPCExceptionMapper> exceptionMappers;
-    private volatile boolean exceptionMappersResolved;
 
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
@@ -566,9 +565,14 @@ public class JsonRPCRouter {
 
     private JsonRPCResponse.Error resolveError(String methodName, Throwable exception) {
         for (JsonRPCExceptionMapper mapper : getExceptionMappers()) {
-            JsonRPCError mapped = mapper.mapException(exception);
-            if (mapped != null) {
-                return new JsonRPCResponse.Error(mapped.getCode(), mapped.getMessage(), mapped.getData());
+            try {
+                JsonRPCError mapped = mapper.mapException(exception);
+                if (mapped != null) {
+                    return new JsonRPCResponse.Error(mapped.code(), mapped.message(), mapped.data());
+                }
+            } catch (Exception e) {
+                LOG.warnf(e, "Exception mapper %s threw while handling %s",
+                        mapper.getClass().getName(), exception.getClass().getName());
             }
         }
         if (exception instanceof io.quarkus.security.UnauthorizedException) {
@@ -584,16 +588,13 @@ public class JsonRPCRouter {
     }
 
     private List<JsonRPCExceptionMapper> getExceptionMappers() {
-        if (!exceptionMappersResolved) {
-            try {
-                exceptionMappers = Arc.container().select(JsonRPCExceptionMapper.class)
-                        .stream().toList();
-            } catch (jakarta.enterprise.inject.UnsatisfiedResolutionException e) {
-                exceptionMappers = List.of();
-            }
-            exceptionMappersResolved = true;
+        List<JsonRPCExceptionMapper> local = exceptionMappers;
+        if (local == null) {
+            local = Arc.container().select(JsonRPCExceptionMapper.class)
+                    .stream().toList();
+            exceptionMappers = local;
         }
-        return exceptionMappers;
+        return local;
     }
 
     private Uni<JsonRPCResponse<?>> handleUnsubscribe(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {
