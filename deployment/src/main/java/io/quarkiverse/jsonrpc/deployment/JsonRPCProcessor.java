@@ -32,6 +32,7 @@ import org.jboss.jandex.Type;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
+import io.quarkiverse.jsonrpc.api.JsonRPCExceptionMapper;
 import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRecorder;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
@@ -45,6 +46,7 @@ import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.deployment.BeanContainerBuildItem;
 import io.quarkus.arc.deployment.BeanDefiningAnnotationBuildItem;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
+import io.quarkus.arc.deployment.UnremovableBeanBuildItem;
 import io.quarkus.arc.processor.BuiltinScope;
 import io.quarkus.deployment.IsLocalDevelopment;
 import io.quarkus.deployment.annotations.BuildProducer;
@@ -94,6 +96,11 @@ public class JsonRPCProcessor {
         // Make ArC discover the beans marked with the @JsonRPCApi qualifier
         beanDefiningAnnotationProducer
                 .produce(new BeanDefiningAnnotationBuildItem(JSON_RPC_API, BuiltinScope.SINGLETON.getName()));
+    }
+
+    @BuildStep
+    UnremovableBeanBuildItem keepExceptionMappers() {
+        return UnremovableBeanBuildItem.beanTypes(JsonRPCExceptionMapper.class);
     }
 
     @BuildStep

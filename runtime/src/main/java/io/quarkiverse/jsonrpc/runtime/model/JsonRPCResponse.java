@@ -1,5 +1,6 @@
 package io.quarkiverse.jsonrpc.runtime.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 
 public class JsonRPCResponse<T> {
@@ -36,10 +37,17 @@ public class JsonRPCResponse<T> {
     public static final class Error {
         public final int code;
         public final String message;
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        public final Object data;
 
         public Error(int code, String message) {
+            this(code, message, null);
+        }
+
+        public Error(int code, String message, Object data) {
             this.code = code;
             this.message = message;
+            this.data = data;
         }
 
         @Override
@@ -47,6 +55,7 @@ public class JsonRPCResponse<T> {
             return "error {" +
                     "  code=" + code + "," +
                     "  message='" + message + "'" +
+                    (data != null ? ",  data=" + data : "") +
                     "}";
         }
     }
