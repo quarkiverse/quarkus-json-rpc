@@ -31,12 +31,16 @@ public class JsonRpcParent {
     URI jsonRpcUri;
 
     protected JsonObject getJsonRpcRawResponse(String providedInput) throws Exception {
+        return getJsonRpcRawResponse(providedInput, Map.of());
+    }
+
+    protected JsonObject getJsonRpcRawResponse(String providedInput, Map<String, Object> params) throws Exception {
         int id = count.incrementAndGet();
         return jsonRpcRawResponse(id, (ws, queue) -> {
             ws.textMessageHandler(msg -> {
                 queue.add(msg);
             });
-            ws.writeTextMessage(getJsonRPCRequest(id, providedInput, Map.of()));
+            ws.writeTextMessage(getJsonRPCRequest(id, providedInput, params));
         });
     }
 

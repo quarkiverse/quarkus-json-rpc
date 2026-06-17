@@ -21,6 +21,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 
+import io.quarkiverse.jsonrpc.api.JsonRPCError;
+import io.quarkiverse.jsonrpc.api.JsonRPCExceptionMapper;
 import io.quarkiverse.jsonrpc.runtime.model.ExecutionMode;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCKeys;
@@ -58,6 +60,8 @@ public class JsonRPCRouter {
 
     private volatile CurrentIdentityAssociation identityAssociation;
     private volatile boolean identityAssociationUnavailable;
+
+    private volatile List<JsonRPCExceptionMapper> exceptionMappers;
 
     // Map json-rpc method to java in runtime classpath
     private final Map<String, ReflectionInfo> jsonRpcToJava = new HashMap<>();
@@ -491,11 +495,14 @@ public class JsonRPCRouter {
                             .with(
                                     item -> codec.writeSubscriptionItem(s, subscriptionId, item),
                                     failure -> {
+                                        Throwable cause = unwrap(failure);
                                         if (m != null) {
                                             m.recordSubscriptionError(methodName);
                                             m.subscriptionEnded();
                                         }
-                                        codec.writeSubscriptionError(s, subscriptionId, methodName, unwrap(failure));
+                                        LOG.error("Error in JsonRPC subscription", cause);
+                                        codec.writeSubscriptionError(s, subscriptionId,
+                                                resolveError(methodName, cause));
                                         subs.remove(subscriptionId);
                                     },
                                     () -> {
@@ -550,21 +557,44 @@ public class JsonRPCRouter {
         }
     }
 
-    private static JsonRPCResponse<?> errorResponse(JsonNode id, String methodName, Throwable exception) {
-        int code = resolveErrorCode(exception);
+    private JsonRPCResponse<?> errorResponse(JsonNode id, String methodName, Throwable exception) {
+        JsonRPCResponse.Error error = resolveError(methodName, exception);
         LOG.error("Error in JsonRPC Call", exception);
-        return new JsonRPCResponse<>(id,
-                new JsonRPCResponse.Error(code, "Method [" + methodName + "] failed: " + exception.getMessage()));
+        return new JsonRPCResponse<>(id, error);
     }
 
-    private static int resolveErrorCode(Throwable exception) {
+    private JsonRPCResponse.Error resolveError(String methodName, Throwable exception) {
+        for (JsonRPCExceptionMapper mapper : getExceptionMappers()) {
+            try {
+                JsonRPCError mapped = mapper.mapException(exception);
+                if (mapped != null) {
+                    return new JsonRPCResponse.Error(mapped.code(), mapped.message(), mapped.data());
+                }
+            } catch (Exception e) {
+                LOG.warnf(e, "Exception mapper %s threw while handling %s",
+                        mapper.getClass().getName(), exception.getClass().getName());
+            }
+        }
         if (exception instanceof io.quarkus.security.UnauthorizedException) {
-            return JsonRPCKeys.UNAUTHORIZED;
+            return new JsonRPCResponse.Error(JsonRPCKeys.UNAUTHORIZED,
+                    "Method [" + methodName + "] failed: " + exception.getMessage());
         }
         if (exception instanceof io.quarkus.security.ForbiddenException) {
-            return JsonRPCKeys.FORBIDDEN;
+            return new JsonRPCResponse.Error(JsonRPCKeys.FORBIDDEN,
+                    "Method [" + methodName + "] failed: " + exception.getMessage());
         }
-        return JsonRPCKeys.INTERNAL_ERROR;
+        return new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR,
+                "Method [" + methodName + "] failed: " + exception.getMessage());
+    }
+
+    private List<JsonRPCExceptionMapper> getExceptionMappers() {
+        List<JsonRPCExceptionMapper> local = exceptionMappers;
+        if (local == null) {
+            local = Arc.container().select(JsonRPCExceptionMapper.class)
+                    .stream().toList();
+            exceptionMappers = local;
+        }
+        return local;
     }
 
     private Uni<JsonRPCResponse<?>> handleUnsubscribe(JsonRPCRequest jsonRpcRequest, ServerWebSocket s) {

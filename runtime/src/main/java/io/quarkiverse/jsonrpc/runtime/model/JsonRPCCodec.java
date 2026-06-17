@@ -53,12 +53,13 @@ public class JsonRPCCodec {
         writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
     }
 
-    public void writeSubscriptionError(ServerWebSocket socket, String subscriptionId, String methodName,
-            Throwable exception) {
-        LOG.error("Error in JsonRPC subscription", exception);
+    public void writeSubscriptionError(ServerWebSocket socket, String subscriptionId, JsonRPCResponse.Error error) {
         Map<String, Object> errorDetail = new LinkedHashMap<>();
-        errorDetail.put(JsonRPCKeys.CODE, JsonRPCKeys.INTERNAL_ERROR);
-        errorDetail.put(JsonRPCKeys.MESSAGE, "Method [" + methodName + "] failed: " + exception.getMessage());
+        errorDetail.put(JsonRPCKeys.CODE, error.code);
+        errorDetail.put(JsonRPCKeys.MESSAGE, error.message);
+        if (error.data != null) {
+            errorDetail.put(JsonRPCKeys.DATA, error.data);
+        }
 
         Map<String, Object> params = new LinkedHashMap<>();
         params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);

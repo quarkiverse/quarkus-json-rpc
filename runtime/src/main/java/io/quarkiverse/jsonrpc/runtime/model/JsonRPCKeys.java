@@ -13,6 +13,7 @@ public interface JsonRPCKeys {
     public static final String METHOD = "method";
     public static final String PARAMS = "params";
     public static final String SUBSCRIPTION = "subscription";
+    public static final String DATA = "data";
     public static final String COMPLETE = "complete";
     public static final String UNSUBSCRIBE = "unsubscribe";
 
