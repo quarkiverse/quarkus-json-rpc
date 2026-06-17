@@ -58,7 +58,32 @@ The following rules apply when the extension scans your class:
 - Only **public** methods are exposed.
 - Constructors and static methods are ignored.
 - Private and package-private methods are ignored.
+- Methods annotated with `@JsonRPCIgnore` are excluded (see <<ignoring-methods>> below).
 - Methods may return any type, including `void` (see <<void-methods>> below).
+
+[#ignoring-methods]
+== Ignoring Methods
+
+Annotate a public method with `@JsonRPCIgnore` to exclude it from JSON-RPC registration. The method remains public and usable from Java (for example, by CDI or other beans), but it will not be exposed as a JSON-RPC endpoint and will not appear in the generated JavaScript client proxy:
+
+[source,java]
+----
+import io.quarkiverse.jsonrpc.api.JsonRPCApi;
+import io.quarkiverse.jsonrpc.api.JsonRPCIgnore;
+
+@JsonRPCApi
+public class OrderService {
+
+    public Order getOrder(String id) {
+        return findOrder(id);
+    }
+
+    @JsonRPCIgnore
+    public void recalculateTotals() {
+        // Public for CDI, but not a JSON-RPC endpoint
+    }
+}
+----
 
 == CDI Integration
 

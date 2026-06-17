@@ -75,6 +75,7 @@ import io.smallrye.common.annotation.RunOnVirtualThread;
 public class JsonRPCProcessor {
     private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(JsonRPCProcessor.class);
     private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCApi");
+    private static final DotName JSON_RPC_IGNORE = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCIgnore");
     private static final Pattern JS_IDENTIFIER = Pattern.compile("^[a-zA-Z_$][a-zA-Z0-9_$]*$");
     private static final Set<String> JS_RESERVED_WORDS = Set.of(
             "break", "case", "catch", "class", "const", "continue", "debugger", "default",
@@ -132,6 +133,9 @@ public class JsonRPCProcessor {
             for (MethodInfo method : methods) {
                 if (!method.name().equals(CONSTRUCTOR)) { // Ignore constructor
                     if (Modifier.isPublic(method.flags())) { // Only allow public methods
+                        if (method.hasAnnotation(JSON_RPC_IGNORE)) {
+                            continue;
+                        }
                         if (method.hasAnnotation(Blocking.class) && method.hasAnnotation(NonBlocking.class)) {
                             throw new IllegalArgumentException(
                                     "Method " + classInfo.name() + "." + method.name()
