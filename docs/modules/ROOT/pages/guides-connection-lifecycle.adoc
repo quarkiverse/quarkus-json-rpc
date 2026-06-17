@@ -1,0 +1,80 @@
+= Connection Lifecycle Events
+
+include::./includes/attributes.adoc[]
+
+The extension fires CDI events when WebSocket clients connect and disconnect. Observe these events to log connections, initialize per-session state, or clean up resources on disconnect.
+
+== Observing Connections
+
+[source,java]
+----
+import io.quarkiverse.jsonrpc.api.JsonRPCConnected;
+import io.quarkiverse.jsonrpc.api.JsonRPCDisconnected;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
+
+@ApplicationScoped
+public class ConnectionObserver {
+
+    void onConnect(@Observes JsonRPCConnected event) {
+        Log.infof("Client connected: %s", event.sessionId());
+    }
+
+    void onDisconnect(@Observes JsonRPCDisconnected event) {
+        Log.infof("Client disconnected: %s", event.sessionId());
+    }
+}
+----
+
+Both events carry a `sessionId()` — the same identifier used by `JsonRPCBroadcaster` to target individual clients.
+
+== Event Timing
+
+`JsonRPCConnected`::
+Fires after session registration and identity setup but *before* message handlers are attached. The socket cannot yet receive JSON-RPC messages during observer execution.
+
+`JsonRPCDisconnected`::
+Fires *after* the session has been fully cleaned up — session removed, identity cleared, subscriptions cancelled. Observers cannot send messages to the disconnecting client.
+
+== Threading
+
+Both events fire on the Vert.x event loop thread. Observers must not perform blocking operations (database calls, HTTP requests, file I/O). If you need to do blocking work in response to a connection event, offload it:
+
+[source,java]
+----
+@ApplicationScoped
+public class ConnectionObserver {
+
+    @Inject
+    Vertx vertx;
+
+    void onConnect(@Observes JsonRPCConnected event) {
+        vertx.executeBlocking(() -> {
+            // blocking work here
+            return null;
+        });
+    }
+}
+----
+
+== Use with Broadcasting
+
+Combine lifecycle events with `JsonRPCBroadcaster` to notify existing clients when someone joins:
+
+[source,java]
+----
+@ApplicationScoped
+public class PresenceObserver {
+
+    @Inject
+    JsonRPCBroadcaster broadcaster;
+
+    void onConnect(@Observes JsonRPCConnected event) {
+        broadcaster.broadcast("userJoined", Map.of("sessionId", event.sessionId()));
+    }
+
+    void onDisconnect(@Observes JsonRPCDisconnected event) {
+        broadcaster.broadcast("userLeft", Map.of("sessionId", event.sessionId()));
+    }
+}
+----

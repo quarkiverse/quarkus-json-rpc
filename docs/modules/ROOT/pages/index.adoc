@@ -109,6 +109,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 | xref:guides-concurrency.adoc[Concurrency & Session Isolation]
 | Connection isolation, shared bean instances, threading model, and tuning for production.
 
+| xref:guides-connection-lifecycle.adoc[Connection Lifecycle Events]
+| React to client connect and disconnect via CDI events.
+
 | xref:guides-metrics.adoc[Metrics]
 | Automatic request timing and connection tracking with Micrometer.
 

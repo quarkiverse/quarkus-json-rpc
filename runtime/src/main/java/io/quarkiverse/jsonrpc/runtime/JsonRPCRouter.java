@@ -671,9 +671,10 @@ public class JsonRPCRouter {
         return objects.toArray(Object[]::new);
     }
 
-    private void fireEvent(Object event) {
+    @SuppressWarnings("unchecked")
+    private <T> void fireEvent(T event) {
         try {
-            Arc.container().beanManager().getEvent().select((Class) event.getClass()).fire(event);
+            Arc.container().beanManager().getEvent().select((Class<T>) event.getClass()).fire(event);
         } catch (Exception e) {
             LOG.warnf(e, "Failed to fire %s event", event.getClass().getSimpleName());
         }
