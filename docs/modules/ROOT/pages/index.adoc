@@ -76,6 +76,9 @@ Complex types are serialized and deserialized automatically via Jackson, includi
 Security::
 Secure your endpoints with standard Jakarta security annotations (`@RolesAllowed`, `@Authenticated`, etc.) or Quarkus HTTP auth policies — opt-in, no changes needed for unsecured use cases.
 
+Health check::
+When SmallRye Health is on the classpath, a readiness check is registered automatically — reporting endpoint status and active connection count.
+
 Timeouts::
 Protect against hanging methods with a global timeout or per-method `@Timeout` via MicroProfile Fault Tolerance.
 
@@ -120,6 +123,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 
 | xref:guides-metrics.adoc[Metrics]
 | Automatic request timing and connection tracking with Micrometer.
+
+| xref:guides-health.adoc[Health Check]
+| Automatic readiness health check with active connection count.
 
 | xref:guides-javascript-client.adoc[JavaScript Client]
 | Generate a typed JavaScript proxy for calling your endpoints from the browser.
