@@ -96,7 +96,7 @@ Java types are mapped to https://json-schema.org/[JSON Schema] automatically:
 | `{"$ref": "#/components/schemas/ClassName"}`
 |===
 
-Complex types (POJOs) are introspected via their fields and getter methods and placed in the `components/schemas` section with `$ref` pointers. Nested and recursive types are handled automatically.
+Complex types (POJOs) are introspected via their fields and getter methods and placed in the `components/schemas` section with `$ref` pointers. Nested, recursive, and inherited types are handled automatically — properties from superclasses are included in the schema.
 
 == Reactive Return Types
 
@@ -139,6 +139,10 @@ During development, the OpenRPC document is also available in the Quarkus Dev UI
 | `quarkus.json-rpc.openrpc.path`
 | `/json-rpc/openrpc.json`
 | HTTP path where the document is served.
+
+| `quarkus.json-rpc.openrpc.schema-simple-names`
+| `false`
+| Use simple class names (e.g. `Pojo`) instead of fully-qualified names (e.g. `com.example.Pojo`) as schema keys in `components/schemas`. Simple names are shorter but may collide when different packages contain classes with the same name.
 |===
 
 To disable the endpoint entirely:

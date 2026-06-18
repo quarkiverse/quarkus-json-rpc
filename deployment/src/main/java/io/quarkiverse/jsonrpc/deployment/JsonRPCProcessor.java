@@ -316,7 +316,7 @@ public class JsonRPCProcessor {
     }
 
     @BuildStep
-    @Record(ExecutionTime.RUNTIME_INIT)
+    @Record(ExecutionTime.STATIC_INIT)
     void registerOpenRPCEndpoint(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
@@ -330,7 +330,7 @@ public class JsonRPCProcessor {
         }
 
         OpenRPCDocumentGenerator generator = new OpenRPCDocumentGenerator(
-                combinedIndexBuildItem.getIndex());
+                combinedIndexBuildItem.getIndex(), jsonRPCConfig.openrpc().schemaSimpleNames());
         String openrpcDocument = generator.generate(jsonRPCMethodsBuildItem.getMethodsMap());
 
         routeProducer.produce(

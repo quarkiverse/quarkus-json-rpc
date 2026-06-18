@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import io.quarkiverse.jsonrpc.app.BasePojo;
+import io.quarkiverse.jsonrpc.app.ChildPojo;
 import io.quarkiverse.jsonrpc.app.Pojo;
 import io.quarkiverse.jsonrpc.app.Pojo2;
 import io.quarkiverse.jsonrpc.app.PojoResource;
@@ -17,7 +19,8 @@ public class PojoJsonRpcTest extends JsonRpcParent {
     @RegisterExtension
     public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
-                root.addClasses(PojoResource.class, Pojo.class, Pojo2.class);
+                root.addClasses(PojoResource.class, Pojo.class, Pojo2.class,
+                        BasePojo.class, ChildPojo.class);
             });
 
     @Test

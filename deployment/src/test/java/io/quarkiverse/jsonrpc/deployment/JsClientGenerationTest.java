@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import io.quarkiverse.jsonrpc.app.BasePojo;
+import io.quarkiverse.jsonrpc.app.ChildPojo;
 import io.quarkiverse.jsonrpc.app.HelloResource;
 import io.quarkiverse.jsonrpc.app.Pojo;
 import io.quarkiverse.jsonrpc.app.Pojo2;
@@ -16,7 +18,8 @@ public class JsClientGenerationTest extends JsClientTestBase {
     @RegisterExtension
     public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
-                root.addClasses(HelloResource.class, PojoResource.class, Pojo.class, Pojo2.class, VoidResource.class);
+                root.addClasses(HelloResource.class, PojoResource.class, Pojo.class, Pojo2.class,
+                        BasePojo.class, ChildPojo.class, VoidResource.class);
             })
             .overrideConfigKey("quarkus.json-rpc.js-client.enabled", "true");
 

@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import io.quarkiverse.jsonrpc.app.BasePojo;
+import io.quarkiverse.jsonrpc.app.ChildPojo;
 import io.quarkiverse.jsonrpc.app.CollectionResource;
 import io.quarkiverse.jsonrpc.app.HelloResource;
 import io.quarkiverse.jsonrpc.app.Pojo;
@@ -24,7 +26,8 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
     public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class, PojoResource.class,
-                        Pojo.class, Pojo2.class, VoidResource.class, CollectionResource.class);
+                        Pojo.class, Pojo2.class, BasePojo.class, ChildPojo.class,
+                        VoidResource.class, CollectionResource.class);
             });
 
     @Test
@@ -123,7 +126,7 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
         JsonObject result = method.getJsonObject("result");
         assertNotNull(result);
         String ref = result.getJsonObject("schema").getString("$ref");
-        assertEquals("#/components/schemas/Pojo", ref);
+        assertEquals("#/components/schemas/io.quarkiverse.jsonrpc.app.Pojo", ref);
     }
 
     @Test
@@ -134,7 +137,7 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
         JsonObject schemas = doc.getJsonObject("components").getJsonObject("schemas");
         assertNotNull(schemas);
 
-        JsonObject pojoSchema = schemas.getJsonObject("Pojo");
+        JsonObject pojoSchema = schemas.getJsonObject("io.quarkiverse.jsonrpc.app.Pojo");
         assertNotNull(pojoSchema, "Should contain Pojo schema");
         assertEquals("object", pojoSchema.getString("type"));
 
@@ -145,7 +148,7 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
         assertTrue(props.containsKey("pojo2"));
 
         // Nested Pojo2 should also be in schemas
-        JsonObject pojo2Schema = schemas.getJsonObject("Pojo2");
+        JsonObject pojo2Schema = schemas.getJsonObject("io.quarkiverse.jsonrpc.app.Pojo2");
         assertNotNull(pojo2Schema, "Should contain Pojo2 schema");
     }
 
@@ -173,6 +176,34 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
         JsonObject schema = method.getJsonObject("result").getJsonObject("schema");
         assertEquals("object", schema.getString("type"));
         assertEquals("string", schema.getJsonObject("additionalProperties").getString("type"));
+    }
+
+    @Test
+    public void testInheritedPropertiesIncluded() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject schemas = doc.getJsonObject("components").getJsonObject("schemas");
+        JsonObject childSchema = schemas.getJsonObject("io.quarkiverse.jsonrpc.app.ChildPojo");
+        assertNotNull(childSchema, "Should contain ChildPojo schema");
+
+        JsonObject props = childSchema.getJsonObject("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("childField"), "Should contain own property");
+        assertTrue(props.containsKey("baseField"), "Should contain inherited property from BasePojo");
+    }
+
+    @Test
+    public void testSchemaUsesFullyQualifiedNamesByDefault() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject schemas = doc.getJsonObject("components").getJsonObject("schemas");
+        assertNotNull(schemas);
+        assertTrue(schemas.containsKey("io.quarkiverse.jsonrpc.app.Pojo"),
+                "Schema keys should use fully-qualified names by default");
+        assertFalse(schemas.containsKey("Pojo"),
+                "Schema keys should not use simple names by default");
     }
 
     @Test

@@ -49,11 +49,13 @@ public class OpenRPCDocumentGenerator {
 
     private final IndexView index;
     private final ObjectMapper mapper;
+    private final boolean schemaSimpleNames;
     private final Map<String, ObjectNode> componentSchemas = new TreeMap<>();
     private final Set<DotName> schemasInProgress = new HashSet<>();
 
-    public OpenRPCDocumentGenerator(IndexView index) {
+    public OpenRPCDocumentGenerator(IndexView index, boolean schemaSimpleNames) {
         this.index = index;
+        this.schemaSimpleNames = schemaSimpleNames;
         this.mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     }
 
@@ -303,19 +305,21 @@ public class OpenRPCDocumentGenerator {
     }
 
     private ObjectNode generatePojoRef(DotName name) {
-        String simpleName = name.local();
+        String schemaKey = schemaSimpleNames ? name.local() : name.toString();
 
-        if (!componentSchemas.containsKey(simpleName) && !schemasInProgress.contains(name)) {
+        if (!componentSchemas.containsKey(schemaKey) && !schemasInProgress.contains(name)) {
             schemasInProgress.add(name);
             ObjectNode pojoSchema = buildPojoSchema(name);
             if (pojoSchema != null) {
-                componentSchemas.put(simpleName, pojoSchema);
+                componentSchemas.put(schemaKey, pojoSchema);
             }
             schemasInProgress.remove(name);
         }
 
-        return createRef(simpleName);
+        return createRef(schemaKey);
     }
+
+    private static final DotName JAVA_LANG_OBJECT = DotName.createSimple("java.lang.Object");
 
     private ObjectNode buildPojoSchema(DotName name) {
         ClassInfo classInfo = index.getClassByName(name);
@@ -327,17 +331,32 @@ public class OpenRPCDocumentGenerator {
         schema.put("type", "object");
         ObjectNode properties = mapper.createObjectNode();
 
-        // Public fields
+        ClassInfo current = classInfo;
+        while (current != null) {
+            collectProperties(current, properties);
+            DotName superName = current.superName();
+            if (superName == null || JAVA_LANG_OBJECT.equals(superName)) {
+                break;
+            }
+            current = index.getClassByName(superName);
+        }
+
+        if (!properties.isEmpty()) {
+            schema.set("properties", properties);
+        }
+        return schema;
+    }
+
+    private void collectProperties(ClassInfo classInfo, ObjectNode properties) {
         for (FieldInfo field : classInfo.fields()) {
             if (java.lang.reflect.Modifier.isStatic(field.flags())) {
                 continue;
             }
-            if (java.lang.reflect.Modifier.isPublic(field.flags())) {
+            if (java.lang.reflect.Modifier.isPublic(field.flags()) && !properties.has(field.name())) {
                 properties.set(field.name(), typeToJsonSchema(field.type()));
             }
         }
 
-        // Getter methods (getXxx/isXxx for private fields)
         for (MethodInfo method : classInfo.methods()) {
             String methodName = method.name();
             if (method.parametersCount() != 0 || method.returnType().kind() == Type.Kind.VOID) {
@@ -353,11 +372,6 @@ public class OpenRPCDocumentGenerator {
                 properties.set(propertyName, typeToJsonSchema(method.returnType()));
             }
         }
-
-        if (properties.size() > 0) {
-            schema.set("properties", properties);
-        }
-        return schema;
     }
 
     private ObjectNode createRef(String typeName) {
@@ -405,9 +419,19 @@ public class OpenRPCDocumentGenerator {
         if (classInfo == null) {
             return null;
         }
-        int paramCount = method.hasParams() ? method.getParams().size() : 0;
+        List<Class> paramTypes = method.hasParams() ? List.copyOf(method.getParams().values()) : List.of();
         for (MethodInfo mi : classInfo.methods()) {
-            if (mi.name().equals(method.getMethodName()) && mi.parametersCount() == paramCount) {
+            if (!mi.name().equals(method.getMethodName()) || mi.parametersCount() != paramTypes.size()) {
+                continue;
+            }
+            boolean match = true;
+            for (int i = 0; i < paramTypes.size(); i++) {
+                if (!mi.parameterType(i).name().toString().equals(paramTypes.get(i).getName())) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
                 return mi;
             }
         }

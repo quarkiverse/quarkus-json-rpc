@@ -15,4 +15,12 @@ public interface JsonRPCOpenRPCConfig {
      */
     @WithDefault("/json-rpc/openrpc.json")
     String path();
+
+    /**
+     * Whether to use simple class names (e.g. {@code Pojo}) instead of fully-qualified names
+     * (e.g. {@code com.example.Pojo}) as schema keys in the {@code components/schemas} section.
+     * Simple names are shorter but may collide when different packages contain classes with the same name.
+     */
+    @WithDefault("false")
+    boolean schemaSimpleNames();
 }
