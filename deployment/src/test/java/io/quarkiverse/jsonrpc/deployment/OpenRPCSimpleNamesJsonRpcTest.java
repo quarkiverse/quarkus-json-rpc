@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import io.quarkiverse.jsonrpc.app.AnnotatedPojo;
 import io.quarkiverse.jsonrpc.app.BasePojo;
 import io.quarkiverse.jsonrpc.app.ChildPojo;
 import io.quarkiverse.jsonrpc.app.Pojo;
@@ -20,7 +21,7 @@ public class OpenRPCSimpleNamesJsonRpcTest extends JsClientTestBase {
     public static final QuarkusUnitTest test = new QuarkusUnitTest()
             .withApplicationRoot(root -> {
                 root.addClasses(PojoResource.class, Pojo.class, Pojo2.class,
-                        BasePojo.class, ChildPojo.class);
+                        BasePojo.class, ChildPojo.class, AnnotatedPojo.class);
             })
             .overrideConfigKey("quarkus.json-rpc.openrpc.schema-simple-names", "true");
 

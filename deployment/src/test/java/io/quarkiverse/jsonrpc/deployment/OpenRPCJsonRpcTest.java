@@ -3,11 +3,13 @@ package io.quarkiverse.jsonrpc.deployment;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import io.quarkiverse.jsonrpc.app.AnnotatedPojo;
 import io.quarkiverse.jsonrpc.app.BasePojo;
 import io.quarkiverse.jsonrpc.app.ChildPojo;
 import io.quarkiverse.jsonrpc.app.CollectionResource;
@@ -27,7 +29,7 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class, PojoResource.class,
                         Pojo.class, Pojo2.class, BasePojo.class, ChildPojo.class,
-                        VoidResource.class, CollectionResource.class);
+                        AnnotatedPojo.class, VoidResource.class, CollectionResource.class);
             });
 
     @Test
@@ -212,7 +214,41 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
         JsonObject doc = new JsonObject(body);
 
         JsonObject method = findMethod(doc, "HelloResource#ignoredMethod");
-        assertFalse(method != null, "@JsonRPCIgnore methods should not appear in OpenRPC");
+        assertNull(method, "@JsonRPCIgnore methods should not appear in OpenRPC");
+    }
+
+    @Test
+    public void testJsonPropertyRenamesSchemaField() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject schemas = doc.getJsonObject("components").getJsonObject("schemas");
+        JsonObject annotatedSchema = schemas.getJsonObject("io.quarkiverse.jsonrpc.app.AnnotatedPojo");
+        assertNotNull(annotatedSchema, "Should contain AnnotatedPojo schema");
+
+        JsonObject props = annotatedSchema.getJsonObject("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("display_name"),
+                "@JsonProperty(\"display_name\") should rename 'name' to 'display_name'");
+        assertFalse(props.containsKey("name"),
+                "Original field name 'name' should not appear when @JsonProperty renames it");
+    }
+
+    @Test
+    public void testJsonIgnoreExcludesSchemaField() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject schemas = doc.getJsonObject("components").getJsonObject("schemas");
+        JsonObject annotatedSchema = schemas.getJsonObject("io.quarkiverse.jsonrpc.app.AnnotatedPojo");
+        assertNotNull(annotatedSchema, "Should contain AnnotatedPojo schema");
+
+        JsonObject props = annotatedSchema.getJsonObject("properties");
+        assertNotNull(props);
+        assertFalse(props.containsKey("secret"),
+                "@JsonIgnore field should not appear in schema");
+        assertTrue(props.containsKey("description"),
+                "Non-ignored field should still appear in schema");
     }
 
     private JsonObject findMethod(JsonObject doc, String methodName) {

@@ -98,6 +98,8 @@ Java types are mapped to https://json-schema.org/[JSON Schema] automatically:
 
 Complex types (POJOs) are introspected via their fields and getter methods and placed in the `components/schemas` section with `$ref` pointers. Nested, recursive, and inherited types are handled automatically — properties from superclasses are included in the schema.
 
+Jackson annotations `@JsonIgnore` and `@JsonProperty` are respected: ignored fields are excluded from the schema, and renamed fields use the annotated name.
+
 == Reactive Return Types
 
 Reactive wrappers are unwrapped to their inner type:

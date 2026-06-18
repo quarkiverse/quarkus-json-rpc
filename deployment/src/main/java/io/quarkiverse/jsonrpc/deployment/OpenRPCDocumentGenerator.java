@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.jboss.jandex.AnnotationInstance;
+import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.FieldInfo;
@@ -46,6 +48,9 @@ public class OpenRPCDocumentGenerator {
 
     private static final DotName MAP = DotName.createSimple("java.util.Map");
     private static final DotName OPTIONAL = DotName.createSimple("java.util.Optional");
+
+    private static final DotName JSON_IGNORE = DotName.createSimple("com.fasterxml.jackson.annotation.JsonIgnore");
+    private static final DotName JSON_PROPERTY = DotName.createSimple("com.fasterxml.jackson.annotation.JsonProperty");
 
     private final IndexView index;
     private final ObjectMapper mapper;
@@ -240,8 +245,9 @@ public class OpenRPCDocumentGenerator {
             case "java.time.Period":
                 return schemaWith("string", null);
             case "java.math.BigDecimal":
+                return schemaWith("number", null);
             case "java.math.BigInteger":
-                return schemaWith("string", null);
+                return schemaWith("integer", null);
             case "java.lang.Object":
             case "com.fasterxml.jackson.databind.JsonNode":
                 return mapper.createObjectNode();
@@ -348,12 +354,25 @@ public class OpenRPCDocumentGenerator {
     }
 
     private void collectProperties(ClassInfo classInfo, ObjectNode properties) {
+        Set<String> ignoredByField = new HashSet<>();
+        Map<String, String> fieldRenames = new java.util.HashMap<>();
+
         for (FieldInfo field : classInfo.fields()) {
             if (java.lang.reflect.Modifier.isStatic(field.flags())) {
                 continue;
             }
-            if (java.lang.reflect.Modifier.isPublic(field.flags()) && !properties.has(field.name())) {
-                properties.set(field.name(), typeToJsonSchema(field.type()));
+            if (field.hasAnnotation(JSON_IGNORE)) {
+                ignoredByField.add(field.name());
+                continue;
+            }
+            String resolvedName = resolvePropertyName(field.annotation(JSON_PROPERTY), field.name());
+            if (!resolvedName.equals(field.name())) {
+                fieldRenames.put(field.name(), resolvedName);
+            }
+            if (java.lang.reflect.Modifier.isPublic(field.flags())) {
+                if (!properties.has(resolvedName)) {
+                    properties.set(resolvedName, typeToJsonSchema(field.type()));
+                }
             }
         }
 
@@ -362,16 +381,35 @@ public class OpenRPCDocumentGenerator {
             if (method.parametersCount() != 0 || method.returnType().kind() == Type.Kind.VOID) {
                 continue;
             }
-            String propertyName = null;
-            if (methodName.startsWith("get") && methodName.length() > 3) {
-                propertyName = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
-            } else if (methodName.startsWith("is") && methodName.length() > 2) {
-                propertyName = Character.toLowerCase(methodName.charAt(2)) + methodName.substring(3);
+            if (method.hasAnnotation(JSON_IGNORE)) {
+                continue;
             }
-            if (propertyName != null && !properties.has(propertyName)) {
-                properties.set(propertyName, typeToJsonSchema(method.returnType()));
+            String derivedName = null;
+            if (methodName.startsWith("get") && methodName.length() > 3) {
+                derivedName = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
+            } else if (methodName.startsWith("is") && methodName.length() > 2) {
+                derivedName = Character.toLowerCase(methodName.charAt(2)) + methodName.substring(3);
+            }
+            if (derivedName != null && !ignoredByField.contains(derivedName)) {
+                String propertyName = resolvePropertyName(method.annotation(JSON_PROPERTY), derivedName);
+                if (propertyName.equals(derivedName) && fieldRenames.containsKey(derivedName)) {
+                    propertyName = fieldRenames.get(derivedName);
+                }
+                if (!properties.has(propertyName)) {
+                    properties.set(propertyName, typeToJsonSchema(method.returnType()));
+                }
             }
         }
+    }
+
+    private String resolvePropertyName(AnnotationInstance jsonProperty, String defaultName) {
+        if (jsonProperty != null) {
+            AnnotationValue value = jsonProperty.value();
+            if (value != null && !value.asString().isEmpty()) {
+                return value.asString();
+            }
+        }
+        return defaultName;
     }
 
     private ObjectNode createRef(String typeName) {
