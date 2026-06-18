@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -116,6 +117,8 @@ public class JsonRPCProcessor {
 
         Map<JsonRPCMethodName, JsonRPCMethod> methodsMap = new HashMap<>();
         Set<String> nativeClasses = new HashSet<>();
+        Set<String> extraPaths = new LinkedHashSet<>();
+        Map<String, String> scopeToPath = new HashMap<>();
 
         // Let's use the Jandex index to find all methods
         for (AnnotationInstance annotationInstance : jsonRPCApiAnnotatoins) {
@@ -125,6 +128,17 @@ public class JsonRPCProcessor {
             String scope = classInfo.simpleName();
             if (annotationValue != null && !annotationValue.asString().equals("_DEFAULT_SCOPE_")) {
                 scope = annotationValue.asString();
+            }
+
+            AnnotationValue pathValue = annotationInstance.value("path");
+            if (pathValue != null && !pathValue.asString().isEmpty()) {
+                String path = pathValue.asString();
+                if (!path.startsWith("/")) {
+                    throw new IllegalArgumentException(
+                            "@JsonRPCApi path on " + classInfo.name() + " must start with '/', got: " + path);
+                }
+                extraPaths.add(path);
+                scopeToPath.put(scope, path);
             }
 
             Class clazz = JandexReflection.loadClass(classInfo);
@@ -211,7 +225,7 @@ public class JsonRPCProcessor {
 
         }
 
-        jsonRPCMethodsProvider.produce(new JsonRPCMethodsBuildItem(methodsMap));
+        jsonRPCMethodsProvider.produce(new JsonRPCMethodsBuildItem(methodsMap, extraPaths, scopeToPath));
 
         // Add known classes to native
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCResponse.class.getName());
@@ -301,17 +315,30 @@ public class JsonRPCProcessor {
     void registerHandlers(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
             BuildProducer<RouteBuildItem> routeProducer,
             BeanContainerBuildItem beanContainerBuildItem,
             HttpRootPathBuildItem httpRootPathBuildItem) {
         if (jsonRPCConfig.webSocket().enabled()) {
-            // Websocket for JsonRPC comms
+            // Default WebSocket route for JsonRPC comms
             routeProducer.produce(
                     httpRootPathBuildItem.routeBuilder()
                             .route(jsonRPCConfig.webSocket().path())
                             .routeConfigKey("quarkus.json-rpc.web-socket.path")
                             .handler(recorder.webSocketHandler(beanContainerBuildItem.getValue()))
                             .build());
+
+            // Extra routes from @JsonRPCApi(path = "...")
+            String defaultPath = jsonRPCConfig.webSocket().path();
+            for (String extraPath : jsonRPCMethodsBuildItem.getExtraPaths()) {
+                if (!extraPath.equals(defaultPath)) {
+                    routeProducer.produce(
+                            httpRootPathBuildItem.routeBuilder()
+                                    .route(extraPath)
+                                    .handler(recorder.webSocketHandler(beanContainerBuildItem.getValue()))
+                                    .build());
+                }
+            }
         }
     }
 
@@ -347,11 +374,16 @@ public class JsonRPCProcessor {
     void registerSubProtocolFilter(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
             HttpRootPathBuildItem httpRootPathBuildItem,
             BuildProducer<FilterBuildItem> filterProducer) {
         if (jsonRPCConfig.webSocket().enabled()) {
-            String resolvedPath = httpRootPathBuildItem.resolvePath(jsonRPCConfig.webSocket().path());
-            filterProducer.produce(new FilterBuildItem(recorder.subProtocolHandler(resolvedPath), 300));
+            Set<String> resolvedPaths = new LinkedHashSet<>();
+            resolvedPaths.add(httpRootPathBuildItem.resolvePath(jsonRPCConfig.webSocket().path()));
+            for (String extraPath : jsonRPCMethodsBuildItem.getExtraPaths()) {
+                resolvedPaths.add(httpRootPathBuildItem.resolvePath(extraPath));
+            }
+            filterProducer.produce(new FilterBuildItem(recorder.subProtocolHandler(resolvedPaths), 300));
         }
     }
 
@@ -383,17 +415,33 @@ public class JsonRPCProcessor {
 
         // 2. Generate the typed proxy module
         Map<JsonRPCMethodName, JsonRPCMethod> methodsMap = jsonRPCMethodsBuildItem.getMethodsMap();
-        String proxyJs = generateTypedProxy(methodsMap, jsonRPCConfig.webSocket().path());
+        String proxyJs = generateTypedProxy(methodsMap, jsonRPCConfig.webSocket().path(),
+                jsonRPCMethodsBuildItem.getScopeToPath());
         staticResourceProducer.produce(
                 new GeneratedStaticResourceBuildItem(
                         "/_static/quarkus-json-rpc-api/jsonrpc-api.js",
                         proxyJs.getBytes(StandardCharsets.UTF_8)));
     }
 
-    private String generateTypedProxy(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, String wsPath) {
+    private String generateTypedProxy(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, String wsPath,
+            Map<String, String> scopeToPath) {
         StringBuilder js = new StringBuilder();
         js.append("import { JsonRPCClient } from '@quarkiverse/json-rpc';\n\n");
         js.append("export const client = new JsonRPCClient({ path: '").append(escapeJsString(wsPath)).append("' });\n\n");
+
+        // Create additional clients for custom paths
+        Set<String> extraPaths = new java.util.TreeSet<>(scopeToPath.values());
+        Map<String, String> pathToClientVar = new HashMap<>();
+        int clientIdx = 0;
+        for (String path : extraPaths) {
+            String varName = "_client" + (clientIdx++);
+            pathToClientVar.put(path, varName);
+            js.append("const ").append(varName).append(" = new JsonRPCClient({ path: '")
+                    .append(escapeJsString(path)).append("' });\n");
+        }
+        if (!extraPaths.isEmpty()) {
+            js.append("\n");
+        }
 
         // Group methods by scope and method name (sorted for deterministic output).
         // Multiple overloads of the same method name share one JS proxy entry — the server
@@ -429,13 +477,16 @@ public class JsonRPCProcessor {
             String scope = scopeEntry.getKey();
             Map<String, MethodEntry> methods = scopeEntry.getValue();
 
+            String scopePath = scopeToPath.get(scope);
+            String clientVar = (scopePath != null) ? pathToClientVar.get(scopePath) : "client";
+
             js.append("export const ").append(scope).append(" = {\n");
             int i = 0;
             for (MethodEntry me : methods.values()) {
                 String clientMethod = jsClientMethod(me.method);
                 String methodKey = me.scope + "#" + me.methodName;
                 js.append("    ").append(me.methodName)
-                        .append(": (params) => client.").append(clientMethod)
+                        .append(": (params) => ").append(clientVar).append(".").append(clientMethod)
                         .append("('").append(methodKey).append("', params)");
                 if (i < methods.size() - 1) {
                     js.append(",");

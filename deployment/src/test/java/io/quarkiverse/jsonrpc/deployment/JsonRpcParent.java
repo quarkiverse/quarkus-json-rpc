@@ -58,7 +58,7 @@ public class JsonRpcParent {
 
     protected <T> T getJsonRpcResponse(String providedInput, Class<T> responseType, Object[] params) throws Exception {
         int id = count.incrementAndGet();
-        return jsonRpcResponse(id, responseType, (ws, queue) -> {
+        return jsonRpcResponse(jsonRpcUri, id, responseType, (ws, queue) -> {
             ws.textMessageHandler(msg -> {
                 queue.add(msg);
             });
@@ -73,7 +73,26 @@ public class JsonRpcParent {
     protected <T> T getJsonRpcResponse(String providedInput, Class<T> responseType, Map<String, Object> params)
             throws Exception {
         int id = count.incrementAndGet();
-        return jsonRpcResponse(id, responseType, (ws, queue) -> {
+        return jsonRpcResponse(jsonRpcUri, id, responseType, (ws, queue) -> {
+            ws.textMessageHandler(msg -> {
+                queue.add(msg);
+            });
+            ws.writeTextMessage(getJsonRPCRequest(id, providedInput, params));
+        });
+    }
+
+    protected String getJsonRpcResponse(URI uri, String providedInput) throws Exception {
+        return getJsonRpcResponse(uri, providedInput, String.class, Map.of());
+    }
+
+    protected String getJsonRpcResponse(URI uri, String providedInput, Map<String, Object> params) throws Exception {
+        return getJsonRpcResponse(uri, providedInput, String.class, params);
+    }
+
+    protected <T> T getJsonRpcResponse(URI uri, String providedInput, Class<T> responseType, Map<String, Object> params)
+            throws Exception {
+        int id = count.incrementAndGet();
+        return jsonRpcResponse(uri, id, responseType, (ws, queue) -> {
             ws.textMessageHandler(msg -> {
                 queue.add(msg);
             });
@@ -83,11 +102,16 @@ public class JsonRpcParent {
 
     private JsonObject jsonRpcRawResponse(int expectedId, BiConsumer<WebSocket, Queue<String>> action)
             throws Exception {
+        return jsonRpcRawResponse(jsonRpcUri, expectedId, action);
+    }
+
+    private JsonObject jsonRpcRawResponse(URI uri, int expectedId, BiConsumer<WebSocket, Queue<String>> action)
+            throws Exception {
         WebSocketClient client = vertx.createWebSocketClient();
         try {
             LinkedBlockingDeque<String> message = new LinkedBlockingDeque<>();
             client
-                    .connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
+                    .connect(uri.getPort(), uri.getHost(), uri.getPath())
                     .onComplete(r -> {
                         if (r.succeeded()) {
                             WebSocket ws = r.result();
@@ -108,13 +132,14 @@ public class JsonRpcParent {
     }
 
     @SuppressWarnings("unchecked")
-    private <T> T jsonRpcResponse(int expectedId, Class<T> responseType, BiConsumer<WebSocket, Queue<String>> action)
+    private <T> T jsonRpcResponse(URI uri, int expectedId, Class<T> responseType,
+            BiConsumer<WebSocket, Queue<String>> action)
             throws Exception {
         WebSocketClient client = vertx.createWebSocketClient();
         try {
             LinkedBlockingDeque<String> message = new LinkedBlockingDeque<>();
             client
-                    .connect(jsonRpcUri.getPort(), jsonRpcUri.getHost(), jsonRpcUri.getPath())
+                    .connect(uri.getPort(), uri.getHost(), uri.getPath())
                     .onComplete(r -> {
                         if (r.succeeded()) {
                             WebSocket ws = r.result();

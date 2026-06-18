@@ -78,6 +78,40 @@ const sub = TickerService.ticker()
 await sub.cancel();
 ----
 
+=== Custom Path APIs
+
+When `@JsonRPCApi(path = "...")` is used, the generated proxy creates a separate `JsonRPCClient` for each unique custom path. Scopes without a custom path use the default `client`:
+
+[source,java]
+----
+@JsonRPCApi(path = "/admin-rpc")
+public class AdminService { ... }
+
+@JsonRPCApi
+public class PublicService { ... }
+----
+
+[source,javascript]
+----
+import { client, AdminService, PublicService } from '@quarkiverse/json-rpc-api';
+
+// PublicService calls go through the default client at /json-rpc
+const info = await PublicService.getInfo();
+
+// AdminService calls go through a separate client at /admin-rpc
+const status = await AdminService.getStatus();
+----
+
+Each custom-path client is created internally and used automatically by the proxy. If you need to configure authentication or connection settings for a custom-path client, use `JsonRPCClient.configure()` to set global defaults that apply to all client instances:
+
+[source,javascript]
+----
+import { JsonRPCClient } from '@quarkiverse/json-rpc';
+
+// Applies to all clients (default and custom-path)
+JsonRPCClient.configure({ token: 'Bearer my-jwt-token' });
+----
+
 === Configuring the Connection
 
 The typed proxy exports the `client` instance so you can reconfigure the WebSocket URL at runtime -- for example, when behind a reverse proxy or gateway:

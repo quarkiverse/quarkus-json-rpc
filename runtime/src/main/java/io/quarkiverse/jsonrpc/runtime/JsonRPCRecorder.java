@@ -1,6 +1,7 @@
 package io.quarkiverse.jsonrpc.runtime;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -79,8 +80,8 @@ public class JsonRPCRecorder {
         return new JsonRPCWebSocket(beanContainer.beanInstance(JsonRPCRouter.class));
     }
 
-    public Handler<RoutingContext> subProtocolHandler(String wsPath) {
-        return new JsonRPCSubProtocolHandler(wsPath);
+    public Handler<RoutingContext> subProtocolHandler(Set<String> wsPaths) {
+        return new JsonRPCSubProtocolHandler(wsPaths);
     }
 
     public Handler<RoutingContext> openRpcHandler(String openrpcDocument) {

@@ -145,15 +145,75 @@ If the client _does_ include an `id`, the server responds with `"result": null` 
 
 Void methods follow the same execution mode rules as any other method — they are blocking by default and can be annotated with `@NonBlocking` or `@RunOnVirtualThread`. See xref:guides-execution-modes.adoc[Execution Modes & Return Types].
 
+== Custom Path
+
+By default, all `@JsonRPCApi` classes share the global WebSocket endpoint (see <<websocket-endpoint>> below). You can assign a class to a separate WebSocket path using the `path` attribute:
+
+[source,java]
+----
+@JsonRPCApi(path = "/admin-rpc")
+public class AdminService {
+
+    public String getStatus() {
+        return "OK";
+    }
+}
+----
+
+This registers an additional WebSocket route at `/admin-rpc`. The methods on `AdminService` are accessible through both the custom path and the default global path.
+
+You can combine `path` with a custom scope:
+
+[source,java]
+----
+@JsonRPCApi(value = "admin", path = "/admin-rpc")
+public class AdminService {
+
+    public String getStatus() {
+        return "OK";
+    }
+}
+----
+
+Now the method is called as `admin#getStatus` via the `/admin-rpc` WebSocket endpoint.
+
+=== Multiple API Groups
+
+Different classes can use different paths, enabling logical separation:
+
+[source,java]
+----
+@JsonRPCApi(path = "/admin-rpc")
+public class AdminService {
+    public String getStatus() { ... }
+}
+
+@JsonRPCApi(path = "/public-rpc")
+public class PublicService {
+    public String getInfo() { ... }
+}
+
+@JsonRPCApi
+public class DefaultService {
+    public String hello() { ... } // <1>
+}
+----
+<1> No `path` — served on the default global endpoint (`/json-rpc`).
+
+This is useful for applying different security policies per path. See xref:guides-security.adoc#_per_path_security[Security — Per-Path Security] for details.
+
+[#websocket-endpoint]
 == WebSocket Endpoint
 
-All JSON-RPC methods are served through a single WebSocket endpoint. By default, this is:
+By default, all JSON-RPC methods are served through a WebSocket endpoint at:
 
 ----
 ws://localhost:8080/json-rpc
 ----
 
-See xref:reference-configuration.adoc[Configuration Reference] to change the path.
+Classes with a `path` attribute register additional WebSocket routes at their specified paths. Classes without a `path` are served on the default global endpoint.
+
+See xref:reference-configuration.adoc[Configuration Reference] to change the default path.
 
 == JSON-RPC 2.0 Protocol
 

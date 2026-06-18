@@ -8,7 +8,6 @@ import java.lang.annotation.Target;
 
 /**
  * Marks a class as a Json-RPC Endpoint.
- * TODO: Allow adding path (from ws)?
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
@@ -18,4 +17,13 @@ public @interface JsonRPCApi {
      * @return a identifier/scope
      */
     String value() default "_DEFAULT_SCOPE_";
+
+    /**
+     * Optional WebSocket path for this API group.
+     * When set, a separate WebSocket route is registered at this path
+     * in addition to the default global path.
+     * When left empty (default), the class's methods are served on the
+     * global path configured via {@code quarkus.json-rpc.web-socket.path}.
+     */
+    String path() default "";
 }
