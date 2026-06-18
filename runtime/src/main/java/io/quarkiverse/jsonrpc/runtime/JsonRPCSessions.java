@@ -65,6 +65,13 @@ public class JsonRPCSessions {
     }
 
     /**
+     * @return the number of currently active connections
+     */
+    public int getActiveConnectionCount() {
+        return idToSocket.size();
+    }
+
+    /**
      * @return the set of all connected session IDs
      */
     public Set<String> getSessionIds() {
