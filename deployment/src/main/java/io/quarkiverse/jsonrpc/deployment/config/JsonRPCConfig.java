@@ -29,4 +29,10 @@ public interface JsonRPCConfig {
      */
     @WithName("health")
     JsonRPCHealthConfig health();
+
+    /**
+     * Configuration properties for the OpenRPC service discovery document
+     */
+    @WithName("openrpc")
+    JsonRPCOpenRPCConfig openrpc();
 }

@@ -63,6 +63,21 @@ public class PojoResource {
                 .onItem().transform(n -> pojo);
     }
 
+    public AnnotatedPojo annotatedPojo() {
+        AnnotatedPojo pojo = new AnnotatedPojo();
+        pojo.setName("test");
+        pojo.setDescription("a description");
+        pojo.setSecret("hidden");
+        return pojo;
+    }
+
+    public ChildPojo childPojo() {
+        ChildPojo child = new ChildPojo();
+        child.setBaseField("inherited");
+        child.setChildField("own");
+        return child;
+    }
+
     private Pojo createPojo() {
         return createPojo(null, null, 0L);
     }

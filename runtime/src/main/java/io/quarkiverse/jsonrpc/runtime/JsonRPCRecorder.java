@@ -82,4 +82,8 @@ public class JsonRPCRecorder {
     public Handler<RoutingContext> subProtocolHandler(String wsPath) {
         return new JsonRPCSubProtocolHandler(wsPath);
     }
+
+    public Handler<RoutingContext> openRpcHandler(String openrpcDocument) {
+        return new OpenRPCHandler(openrpcDocument);
+    }
 }

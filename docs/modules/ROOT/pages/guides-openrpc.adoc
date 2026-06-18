@@ -1,0 +1,170 @@
+= OpenRPC Service Discovery
+
+include::./includes/attributes.adoc[]
+
+The extension can generate an https://open-rpc.org/[OpenRPC] service discovery document — the JSON-RPC equivalent of OpenAPI. The document describes all available methods, their parameters, return types, and JSON Schema definitions for complex types. It is generated at build time from the same `@JsonRPCApi` metadata used for method dispatch, so it is always in sync with your code.
+
+== What You Get
+
+A single HTTP endpoint serves a complete https://spec.open-rpc.org/[OpenRPC 1.3.2] document:
+
+[source,shell]
+----
+curl http://localhost:8080/json-rpc/openrpc.json
+----
+
+[source,json]
+----
+{
+  "openrpc": "1.3.2",
+  "info": {
+    "title": "JSON-RPC API",
+    "version": "1.0.0"
+  },
+  "methods": [
+    {
+      "name": "GreetingService#hello",
+      "params": [
+        {
+          "name": "name",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": { "type": "string" }
+      }
+    }
+  ]
+}
+----
+
+No setup is needed — the endpoint is enabled by default.
+
+== Type Mapping
+
+Java types are mapped to https://json-schema.org/[JSON Schema] automatically:
+
+[cols="1,1"]
+|===
+| Java Type | JSON Schema
+
+| `String`, `char`
+| `{"type": "string"}`
+
+| `int`, `Integer`, `short`, `byte`
+| `{"type": "integer"}`
+
+| `long`, `Long`
+| `{"type": "integer", "format": "int64"}`
+
+| `float`, `Float`
+| `{"type": "number", "format": "float"}`
+
+| `double`, `Double`
+| `{"type": "number", "format": "double"}`
+
+| `boolean`, `Boolean`
+| `{"type": "boolean"}`
+
+| `UUID`
+| `{"type": "string", "format": "uuid"}`
+
+| `LocalDateTime`, `Instant`, `OffsetDateTime`, `ZonedDateTime`
+| `{"type": "string", "format": "date-time"}`
+
+| `LocalDate`
+| `{"type": "string", "format": "date"}`
+
+| `LocalTime`, `OffsetTime`
+| `{"type": "string", "format": "time"}`
+
+| `List<T>`, `Set<T>`, `Collection<T>`, arrays
+| `{"type": "array", "items": <T>}`
+
+| `Map<String, T>`
+| `{"type": "object", "additionalProperties": <T>}`
+
+| `Optional<T>`
+| Schema for `T` (unwrapped)
+
+| Enums
+| `{"type": "string", "enum": [...]}`
+
+| POJOs
+| `{"$ref": "#/components/schemas/ClassName"}`
+|===
+
+Complex types (POJOs) are introspected via their fields and getter methods and placed in the `components/schemas` section with `$ref` pointers. Nested, recursive, and inherited types are handled automatically — properties from superclasses are included in the schema.
+
+Jackson annotations `@JsonIgnore` and `@JsonProperty` are respected: ignored fields are excluded from the schema, and renamed fields use the annotated name.
+
+== Reactive Return Types
+
+Reactive wrappers are unwrapped to their inner type:
+
+* `Uni<String>` → `{"type": "string"}`
+* `CompletionStage<Pojo>` → `{"$ref": "#/components/schemas/Pojo"}`
+
+Streaming types (`Multi<T>`, `Flow.Publisher<T>`) are also unwrapped, and the method is tagged with `"subscription"` to indicate it uses the subscription protocol:
+
+[source,json]
+----
+{
+  "name": "TickerService#ticker",
+  "params": [],
+  "result": {
+    "name": "result",
+    "schema": { "type": "string" }
+  },
+  "tags": [
+    { "name": "subscription" }
+  ]
+}
+----
+
+== Dev UI
+
+During development, the OpenRPC document is also available in the Quarkus Dev UI. The JSON-RPC card includes an "OpenRPC" page that displays the full document with syntax highlighting.
+
+== Configuration
+
+[cols="1,1,2"]
+|===
+| Property | Default | Description
+
+| `quarkus.json-rpc.openrpc.enabled`
+| `true`
+| Whether to generate and serve the OpenRPC document.
+
+| `quarkus.json-rpc.openrpc.path`
+| `/json-rpc/openrpc.json`
+| HTTP path where the document is served.
+
+| `quarkus.json-rpc.openrpc.title`
+| `JSON-RPC API`
+| Title of the API in the OpenRPC `info` object.
+
+| `quarkus.json-rpc.openrpc.version`
+| `1.0.0`
+| Version of the API in the OpenRPC `info` object.
+
+| `quarkus.json-rpc.openrpc.schema-simple-names`
+| `false`
+| Use simple class names (e.g. `Pojo`) instead of fully-qualified names (e.g. `com.example.Pojo`) as schema keys in `components/schemas`. Simple names are shorter but may collide when different packages contain classes with the same name.
+|===
+
+To disable the endpoint entirely:
+
+[source,properties]
+----
+quarkus.json-rpc.openrpc.enabled=false
+----
+
+To serve it at a different path:
+
+[source,properties]
+----
+quarkus.json-rpc.openrpc.path=/api/openrpc
+----

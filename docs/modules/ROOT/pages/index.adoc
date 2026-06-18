@@ -79,6 +79,9 @@ Secure your endpoints with standard Jakarta security annotations (`@RolesAllowed
 Health check::
 When SmallRye Health is on the classpath, a readiness check is registered automatically — reporting endpoint status and active connection count.
 
+OpenRPC service discovery::
+An OpenRPC 1.3.2 document is generated at build time and served at `/json-rpc/openrpc.json`, describing all methods, parameters, and return types with JSON Schema — enabling automatic client generation and documentation.
+
 Timeouts::
 Protect against hanging methods with a global timeout or per-method `@Timeout` via MicroProfile Fault Tolerance.
 
@@ -126,6 +129,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 
 | xref:guides-health.adoc[Health Check]
 | Automatic readiness health check with active connection count.
+
+| xref:guides-openrpc.adoc[OpenRPC Service Discovery]
+| Machine-readable API description with JSON Schema for all methods.
 
 | xref:guides-javascript-client.adoc[JavaScript Client]
 | Generate a typed JavaScript proxy for calling your endpoints from the browser.

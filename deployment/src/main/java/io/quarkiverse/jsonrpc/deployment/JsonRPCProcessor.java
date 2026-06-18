@@ -316,6 +316,33 @@ public class JsonRPCProcessor {
     }
 
     @BuildStep
+    @Record(ExecutionTime.STATIC_INIT)
+    void registerOpenRPCEndpoint(
+            JsonRPCConfig jsonRPCConfig,
+            JsonRPCRecorder recorder,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
+            CombinedIndexBuildItem combinedIndexBuildItem,
+            BuildProducer<RouteBuildItem> routeProducer,
+            HttpRootPathBuildItem httpRootPathBuildItem) {
+
+        if (!jsonRPCConfig.openrpc().enabled()) {
+            return;
+        }
+
+        OpenRPCDocumentGenerator generator = new OpenRPCDocumentGenerator(
+                combinedIndexBuildItem.getIndex(), jsonRPCConfig.openrpc().schemaSimpleNames(),
+                jsonRPCConfig.openrpc().title(), jsonRPCConfig.openrpc().version());
+        String openrpcDocument = generator.generate(jsonRPCMethodsBuildItem.getMethodsMap());
+
+        routeProducer.produce(
+                httpRootPathBuildItem.routeBuilder()
+                        .route(jsonRPCConfig.openrpc().path())
+                        .routeConfigKey("quarkus.json-rpc.openrpc.path")
+                        .handler(recorder.openRpcHandler(openrpcDocument))
+                        .build());
+    }
+
+    @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
     void registerSubProtocolFilter(
             JsonRPCConfig jsonRPCConfig,
@@ -570,6 +597,14 @@ public class JsonRPCProcessor {
                 .title("Sessions")
                 .icon("font-awesome-solid:plug")
                 .componentLink("qwc-json-rpc-sessions.js"));
+
+        // OpenRPC schema viewer
+        if (jsonRPCConfig.openrpc().enabled()) {
+            card.addPage(Page.externalPageBuilder("OpenRPC")
+                    .url(jsonRPCConfig.openrpc().path())
+                    .isJsonContent()
+                    .icon("font-awesome-solid:file-code"));
+        }
 
         return card;
     }

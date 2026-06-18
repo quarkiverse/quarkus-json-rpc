@@ -86,6 +86,10 @@ public class CollectionResource {
         return items.length;
     }
 
+    public String withDefault(String name, Optional<String> title) {
+        return title.map(t -> t + " " + name).orElse(name);
+    }
+
     private Pojo createPojo(String name) {
         Pojo pojo = new Pojo();
         pojo.setName(name);
