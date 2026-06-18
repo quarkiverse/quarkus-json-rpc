@@ -13,6 +13,7 @@
 ** xref:guides-timeouts.adoc[Timeouts]
 ** xref:guides-metrics.adoc[Metrics]
 ** xref:guides-health.adoc[Health Check]
+** xref:guides-openrpc.adoc[OpenRPC Service Discovery]
 ** xref:guides-javascript-client.adoc[JavaScript Client]
 
 .Reference
