@@ -317,6 +317,32 @@ public class JsonRPCProcessor {
 
     @BuildStep
     @Record(ExecutionTime.RUNTIME_INIT)
+    void registerOpenRPCEndpoint(
+            JsonRPCConfig jsonRPCConfig,
+            JsonRPCRecorder recorder,
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
+            CombinedIndexBuildItem combinedIndexBuildItem,
+            BuildProducer<RouteBuildItem> routeProducer,
+            HttpRootPathBuildItem httpRootPathBuildItem) {
+
+        if (!jsonRPCConfig.openrpc().enabled()) {
+            return;
+        }
+
+        OpenRPCDocumentGenerator generator = new OpenRPCDocumentGenerator(
+                combinedIndexBuildItem.getIndex());
+        String openrpcDocument = generator.generate(jsonRPCMethodsBuildItem.getMethodsMap());
+
+        routeProducer.produce(
+                httpRootPathBuildItem.routeBuilder()
+                        .route(jsonRPCConfig.openrpc().path())
+                        .routeConfigKey("quarkus.json-rpc.openrpc.path")
+                        .handler(recorder.openRpcHandler(openrpcDocument))
+                        .build());
+    }
+
+    @BuildStep
+    @Record(ExecutionTime.RUNTIME_INIT)
     void registerSubProtocolFilter(
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,

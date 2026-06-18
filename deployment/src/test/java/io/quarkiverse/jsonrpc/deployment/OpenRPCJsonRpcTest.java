@@ -1,0 +1,197 @@
+package io.quarkiverse.jsonrpc.deployment;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+
+import io.quarkiverse.jsonrpc.app.CollectionResource;
+import io.quarkiverse.jsonrpc.app.HelloResource;
+import io.quarkiverse.jsonrpc.app.Pojo;
+import io.quarkiverse.jsonrpc.app.Pojo2;
+import io.quarkiverse.jsonrpc.app.PojoResource;
+import io.quarkiverse.jsonrpc.app.VoidResource;
+import io.quarkus.test.QuarkusUnitTest;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+
+public class OpenRPCJsonRpcTest extends JsClientTestBase {
+
+    @RegisterExtension
+    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+            .withApplicationRoot(root -> {
+                root.addClasses(HelloResource.class, PojoResource.class,
+                        Pojo.class, Pojo2.class, VoidResource.class, CollectionResource.class);
+            });
+
+    @Test
+    public void testOpenRPCDocumentIsServed() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+        assertEquals("1.3.2", doc.getString("openrpc"));
+        assertNotNull(doc.getJsonObject("info"));
+        assertEquals("JSON-RPC API", doc.getJsonObject("info").getString("title"));
+        assertNotNull(doc.getJsonArray("methods"));
+    }
+
+    @Test
+    public void testOpenRPCContainsMethods() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+        JsonArray methods = doc.getJsonArray("methods");
+        assertTrue(methods.size() > 0, "Should contain at least one method");
+
+        boolean found = methods.stream()
+                .map(o -> ((JsonObject) o).getString("name"))
+                .anyMatch(name -> name.startsWith("HelloResource#hello"));
+        assertTrue(found, "Should contain a HelloResource#hello method");
+    }
+
+    @Test
+    public void testMethodWithParamsHasParamSchemas() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "HelloResource#hello(name)");
+        assertNotNull(method, "Should find HelloResource#hello(name)");
+
+        JsonArray params = method.getJsonArray("params");
+        assertEquals(1, params.size());
+        JsonObject param = params.getJsonObject(0);
+        assertEquals("name", param.getString("name"));
+        assertTrue(param.getBoolean("required"));
+        assertEquals("string", param.getJsonObject("schema").getString("type"));
+    }
+
+    @Test
+    public void testMethodWithNoParamsHasEmptyParams() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "HelloResource#hello");
+        assertNotNull(method, "Should find HelloResource#hello (no-arg)");
+
+        JsonArray params = method.getJsonArray("params");
+        assertEquals(0, params.size());
+    }
+
+    @Test
+    public void testUniMethodUnwrapsReturnType() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "HelloResource#helloUni");
+        assertNotNull(method, "Should find HelloResource#helloUni");
+
+        JsonObject result = method.getJsonObject("result");
+        assertNotNull(result);
+        assertEquals("string", result.getJsonObject("schema").getString("type"));
+    }
+
+    @Test
+    public void testMultiMethodHasSubscriptionTag() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "HelloResource#helloMulti");
+        assertNotNull(method, "Should find HelloResource#helloMulti");
+
+        JsonArray tags = method.getJsonArray("tags");
+        assertNotNull(tags, "Streaming method should have tags");
+        boolean hasSubscription = tags.stream()
+                .map(o -> ((JsonObject) o).getString("name"))
+                .anyMatch("subscription"::equals);
+        assertTrue(hasSubscription, "Streaming method should have 'subscription' tag");
+
+        // Result schema should be the unwrapped type (String, not Multi<String>)
+        JsonObject result = method.getJsonObject("result");
+        assertNotNull(result);
+        assertEquals("string", result.getJsonObject("schema").getString("type"));
+    }
+
+    @Test
+    public void testPojoReturnUsesRef() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "PojoResource#pojo");
+        assertNotNull(method, "Should find PojoResource#pojo");
+
+        JsonObject result = method.getJsonObject("result");
+        assertNotNull(result);
+        String ref = result.getJsonObject("schema").getString("$ref");
+        assertEquals("#/components/schemas/Pojo", ref);
+    }
+
+    @Test
+    public void testComponentsSchemasContainsPojo() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject schemas = doc.getJsonObject("components").getJsonObject("schemas");
+        assertNotNull(schemas);
+
+        JsonObject pojoSchema = schemas.getJsonObject("Pojo");
+        assertNotNull(pojoSchema, "Should contain Pojo schema");
+        assertEquals("object", pojoSchema.getString("type"));
+
+        JsonObject props = pojoSchema.getJsonObject("properties");
+        assertNotNull(props);
+        assertTrue(props.containsKey("name"));
+        assertTrue(props.containsKey("surname"));
+        assertTrue(props.containsKey("pojo2"));
+
+        // Nested Pojo2 should also be in schemas
+        JsonObject pojo2Schema = schemas.getJsonObject("Pojo2");
+        assertNotNull(pojo2Schema, "Should contain Pojo2 schema");
+    }
+
+    @Test
+    public void testListReturnTypeIsArray() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "CollectionResource#listOfStrings");
+        assertNotNull(method, "Should find CollectionResource#listOfStrings");
+
+        JsonObject schema = method.getJsonObject("result").getJsonObject("schema");
+        assertEquals("array", schema.getString("type"));
+        assertEquals("string", schema.getJsonObject("items").getString("type"));
+    }
+
+    @Test
+    public void testMapReturnTypeHasAdditionalProperties() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "CollectionResource#mapOfStrings");
+        assertNotNull(method, "Should find CollectionResource#mapOfStrings");
+
+        JsonObject schema = method.getJsonObject("result").getJsonObject("schema");
+        assertEquals("object", schema.getString("type"));
+        assertEquals("string", schema.getJsonObject("additionalProperties").getString("type"));
+    }
+
+    @Test
+    public void testIgnoredMethodIsNotIncluded() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "HelloResource#ignoredMethod");
+        assertFalse(method != null, "@JsonRPCIgnore methods should not appear in OpenRPC");
+    }
+
+    private JsonObject findMethod(JsonObject doc, String methodName) {
+        JsonArray methods = doc.getJsonArray("methods");
+        for (int i = 0; i < methods.size(); i++) {
+            JsonObject method = methods.getJsonObject(i);
+            if (methodName.equals(method.getString("name"))) {
+                return method;
+            }
+        }
+        return null;
+    }
+}
