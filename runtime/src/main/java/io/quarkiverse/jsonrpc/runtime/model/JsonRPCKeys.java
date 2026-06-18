@@ -26,4 +26,5 @@ public interface JsonRPCKeys {
     // Server-defined errors (JSON-RPC 2.0 reserved range: -32000 to -32099)
     public static final int UNAUTHORIZED = -32000; // Unauthorized. Authentication is required but was not provided or is invalid.
     public static final int FORBIDDEN = -32001; // Forbidden. Authenticated but not authorized for the requested method.
+    public static final int TIMEOUT = -32002; // Timeout. Method execution did not complete within the configured time limit.
 }

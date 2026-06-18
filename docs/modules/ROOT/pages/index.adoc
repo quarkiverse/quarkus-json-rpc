@@ -76,6 +76,9 @@ Complex types are serialized and deserialized automatically via Jackson, includi
 Security::
 Secure your endpoints with standard Jakarta security annotations (`@RolesAllowed`, `@Authenticated`, etc.) or Quarkus HTTP auth policies — opt-in, no changes needed for unsecured use cases.
 
+Timeouts::
+Protect against hanging methods with a global timeout or per-method `@Timeout` via MicroProfile Fault Tolerance.
+
 JavaScript client::
 Optionally generate a typed JavaScript proxy for all your endpoints, ready to import from Quarkus Web Bundler or any ES module environment.
 
@@ -111,6 +114,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 
 | xref:guides-connection-lifecycle.adoc[Connection Lifecycle Events]
 | React to client connect and disconnect via CDI events.
+
+| xref:guides-timeouts.adoc[Timeouts]
+| Protect against hanging methods with global or per-method timeouts.
 
 | xref:guides-metrics.adoc[Metrics]
 | Automatic request timing and connection tracking with Micrometer.

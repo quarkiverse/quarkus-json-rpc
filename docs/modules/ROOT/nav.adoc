@@ -10,6 +10,7 @@
 ** xref:guides-security.adoc[Security]
 ** xref:guides-concurrency.adoc[Concurrency & Session Isolation]
 ** xref:guides-connection-lifecycle.adoc[Connection Lifecycle Events]
+** xref:guides-timeouts.adoc[Timeouts]
 ** xref:guides-metrics.adoc[Metrics]
 ** xref:guides-javascript-client.adoc[JavaScript Client]
 

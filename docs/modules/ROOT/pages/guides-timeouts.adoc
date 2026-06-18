@@ -1,0 +1,160 @@
+= Timeouts
+:description: Configuring timeouts for JSON-RPC method execution.
+
+include::./includes/attributes.adoc[]
+
+By default, JSON-RPC method calls have no timeout — if a method hangs, it ties up a thread indefinitely and the client never receives a response. You can guard against this with a global timeout, per-method timeouts via MicroProfile Fault Tolerance, or both.
+
+== Global Timeout
+
+Set a global timeout that applies to all non-streaming methods:
+
+[source,properties]
+----
+quarkus.json-rpc.method-timeout=30s
+----
+
+Any method that does not complete within this duration receives a timeout error response. Streaming methods (`Multi<T>` and `Flow.Publisher<T>`) are not affected — they are long-lived subscriptions where a global timeout does not apply.
+
+The timeout is disabled by default. Use standard Quarkus duration format (`30s`, `2m`, `500ms`, etc.).
+
+== Per-Method Timeout with MicroProfile Fault Tolerance
+
+For fine-grained control, use the `@Timeout` annotation from https://download.eclipse.org/microprofile/microprofile-fault-tolerance-3.0/microprofile-fault-tolerance-spec-3.0.html[MicroProfile Fault Tolerance]. This works because `@JsonRPCApi` classes are CDI beans, and Quarkus SmallRye Fault Tolerance applies its interceptors through the CDI proxy — exactly as it does for REST endpoints or any other CDI bean.
+
+Add the extension to your project:
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
+</dependency>
+----
+
+Then annotate individual methods:
+
+[source,java]
+----
+import org.eclipse.microprofile.faulttolerance.Timeout;
+
+@JsonRPCApi
+public class MyService {
+
+    @Timeout(5000) // <1>
+    public String slowOperation() {
+        return expensiveComputation();
+    }
+
+    public String fastOperation() { // <2>
+        return "instant";
+    }
+}
+----
+<1> Times out after 5 seconds.
+<2> No per-method timeout — uses the global timeout if configured, otherwise no limit.
+
+=== Combining with Other Fault Tolerance Annotations
+
+Since the integration works through standard CDI interceptors, all MicroProfile Fault Tolerance annotations work on `@JsonRPCApi` methods — not just `@Timeout`. You can combine them as you would on any CDI bean:
+
+[source,java]
+----
+@JsonRPCApi
+public class ResilientService {
+
+    @Timeout(3000)
+    @Retry(maxRetries = 2)
+    @Fallback(fallbackMethod = "fallbackLookup")
+    public String lookup(String id) {
+        return externalService.fetch(id);
+    }
+
+    String fallbackLookup(String id) {
+        return cachedData.get(id);
+    }
+}
+----
+
+== Combining Global and Per-Method Timeouts
+
+Both mechanisms can be active at the same time. Per-method `@Timeout` fires first (at the CDI interceptor level, before the router's timeout), so it takes precedence for methods that have it:
+
+[cols="2,2,2"]
+|===
+| Method | `@Timeout` | Effective timeout
+
+| `slowOperation()`
+| `@Timeout(5000)`
+| 5 seconds (from Fault Tolerance)
+
+| `fastOperation()`
+| _(none)_
+| 30 seconds (from global config)
+|===
+
+The global timeout acts as a safety net — it catches methods that don't have `@Timeout` but still hang unexpectedly.
+
+== Error Response
+
+When a timeout occurs (from either mechanism), the extension returns a JSON-RPC error with code `-32002`:
+
+[source,json]
+----
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32002,
+    "message": "Method [MyService#slowOperation] timed out"
+  }
+}
+----
+
+This code is in the JSON-RPC 2.0 server-defined range (`-32000` to `-32099`), alongside the security error codes:
+
+[cols="1,1,2"]
+|===
+| Code | Name | Meaning
+
+| `-32000`
+| Unauthorized
+| Authentication required but not provided.
+
+| `-32001`
+| Forbidden
+| Authenticated but not authorized.
+
+| `-32002`
+| Timeout
+| Method did not complete within the configured time limit.
+|===
+
+== Custom Error Handling
+
+If you need custom timeout error responses, you can use a `JsonRPCExceptionMapper` to intercept the timeout exception:
+
+[source,java]
+----
+import io.quarkiverse.jsonrpc.api.JsonRPCError;
+import io.quarkiverse.jsonrpc.api.JsonRPCExceptionMapper;
+
+@ApplicationScoped
+public class TimeoutMapper implements JsonRPCExceptionMapper {
+
+    @Override
+    public JsonRPCError mapException(Throwable exception) {
+        if (exception.getClass().getName().contains("TimeoutException")) {
+            return new JsonRPCError(-50001, "Service is busy, please try again later");
+        }
+        return null; // let other mappers or the default handler deal with it
+    }
+}
+----
+
+Exception mappers are consulted before the built-in timeout handling, so your mapper takes precedence.
+
+== Notes
+
+* The global timeout returns an error to the client promptly, but it does not guarantee cancellation of the underlying work. A blocking method may continue running on its worker thread until it completes naturally. This matches the behavior of MicroProfile Fault Tolerance's `@Timeout`.
+* Streaming methods (`Multi<T>`, `Flow.Publisher<T>`) are excluded from the global timeout. For streaming, consider using Mutiny's built-in operators like `Multi.ifNoItem().after(duration).fail()` within your method implementation.
