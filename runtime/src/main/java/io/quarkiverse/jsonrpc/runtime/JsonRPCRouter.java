@@ -21,6 +21,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 
+import io.quarkiverse.jsonrpc.api.JsonRPCConnected;
+import io.quarkiverse.jsonrpc.api.JsonRPCDisconnected;
 import io.quarkiverse.jsonrpc.api.JsonRPCError;
 import io.quarkiverse.jsonrpc.api.JsonRPCExceptionMapper;
 import io.quarkiverse.jsonrpc.runtime.model.ExecutionMode;
@@ -235,7 +237,7 @@ public class JsonRPCRouter {
     }
 
     public void addSocket(ServerWebSocket socket, SecurityIdentity identity) {
-        sessions.addSession(socket);
+        String sessionId = sessions.addSession(socket);
         JsonRPCMetricsHandler m = metrics();
         if (m != null) {
             m.connectionOpened();
@@ -243,6 +245,7 @@ public class JsonRPCRouter {
         if (identity != null && !identity.isAnonymous()) {
             socketIdentities.put(socket, identity);
         }
+        fireEvent(new JsonRPCConnected(sessionId));
         socket.textMessageHandler((e) -> {
             try {
                 JsonNode jsonNode;
@@ -286,6 +289,7 @@ public class JsonRPCRouter {
             }
         });
         socket.closeHandler((e) -> {
+            String closedSessionId = sessions.getSessionId(socket);
             sessions.removeSession(socket);
             socketIdentities.remove(socket);
             JsonRPCMetricsHandler mc = metrics();
@@ -304,6 +308,9 @@ public class JsonRPCRouter {
                         mc.subscriptionEnded();
                     }
                 }
+            }
+            if (closedSessionId != null) {
+                fireEvent(new JsonRPCDisconnected(closedSessionId));
             }
         });
     }
@@ -662,5 +669,14 @@ public class JsonRPCRouter {
             idx++;
         }
         return objects.toArray(Object[]::new);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> void fireEvent(T event) {
+        try {
+            Arc.container().beanManager().getEvent().select((Class<T>) event.getClass()).fire(event);
+        } catch (Exception e) {
+            LOG.warnf(e, "Failed to fire %s event", event.getClass().getSimpleName());
+        }
     }
 }

@@ -220,6 +220,8 @@ public class JsonRPCProcessor {
         nativeClasses.add(io.quarkiverse.jsonrpc.runtime.model.JsonRPCNotification.class.getName());
         nativeClasses.add(JsonRPCSessions.class.getName());
         nativeClasses.add(JsonRPCBroadcaster.class.getName());
+        nativeClasses.add(io.quarkiverse.jsonrpc.api.JsonRPCConnected.class.getName());
+        nativeClasses.add(io.quarkiverse.jsonrpc.api.JsonRPCDisconnected.class.getName());
 
         // Make sure it's available in native
         reflectiveClassProducer
