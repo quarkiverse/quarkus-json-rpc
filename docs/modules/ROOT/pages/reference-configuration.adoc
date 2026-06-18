@@ -2,6 +2,6 @@
 
 include::./includes/attributes.adoc[]
 
-All configuration properties are fixed at build time.
+Configuration properties are organized by phase. Build-time properties are fixed during the build and cannot be changed at runtime. Runtime properties can be set at startup.
 
 include::includes/quarkus-json-rpc.adoc[leveloffset=+1, opts=optional]

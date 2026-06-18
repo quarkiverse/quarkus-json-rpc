@@ -7,11 +7,13 @@ import java.util.function.Supplier;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
+import io.quarkiverse.jsonrpc.runtime.config.JsonRPCRuntimeConfig;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.SyntheticCreationalContext;
 import io.quarkus.arc.runtime.BeanContainer;
+import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
 import io.vertx.core.Handler;
 import io.vertx.ext.web.RoutingContext;
@@ -20,6 +22,12 @@ import io.vertx.ext.web.RoutingContext;
 public class JsonRPCRecorder {
 
     static volatile JsonRPCMetricsHandler metrics;
+
+    private final RuntimeValue<JsonRPCRuntimeConfig> runtimeConfig;
+
+    public JsonRPCRecorder(RuntimeValue<JsonRPCRuntimeConfig> runtimeConfig) {
+        this.runtimeConfig = runtimeConfig;
+    }
 
     public void initMetrics() {
         metrics = JsonRPCMetrics.create();
@@ -50,7 +58,8 @@ public class JsonRPCRecorder {
                 return new JsonRPCRouter(
                         context.getInjectedReference(JsonRPCCodec.class),
                         context.getInjectedReference(JsonRPCSessions.class),
-                        methodsMap);
+                        methodsMap,
+                        runtimeConfig.getValue().methodTimeout().orElse(null));
             }
         };
     }

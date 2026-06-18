@@ -2,11 +2,13 @@ package io.quarkiverse.jsonrpc.runtime;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletionStage;
@@ -72,10 +74,13 @@ public class JsonRPCRouter {
 
     private final JsonRPCSessions sessions;
 
+    private final Duration methodTimeout;
+
     public JsonRPCRouter(JsonRPCCodec codec, JsonRPCSessions sessions,
-            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, Duration methodTimeout) {
         this.codec = codec;
         this.sessions = sessions;
+        this.methodTimeout = methodTimeout;
         populateJsonRPCMethods(methodsMap);
     }
 
@@ -542,6 +547,9 @@ public class JsonRPCRouter {
                     return Uni.createFrom()
                             .item(new DispatchResult(errorResponse(jsonRpcRequest.getId(), methodName, unwrap(e))));
                 }
+                if (methodTimeout != null) {
+                    uni = uni.ifNoItem().after(methodTimeout).fail();
+                }
                 return uni
                         .<DispatchResult> map(item -> {
                             if (m != null) {
@@ -590,8 +598,21 @@ public class JsonRPCRouter {
             return new JsonRPCResponse.Error(JsonRPCKeys.FORBIDDEN,
                     "Method [" + methodName + "] failed: " + exception.getMessage());
         }
+        if (isTimeoutException(exception)) {
+            return new JsonRPCResponse.Error(JsonRPCKeys.TIMEOUT,
+                    "Method [" + methodName + "] timed out");
+        }
         return new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR,
                 "Method [" + methodName + "] failed: " + exception.getMessage());
+    }
+
+    private static final Set<String> TIMEOUT_EXCEPTION_NAMES = Set.of(
+            "java.util.concurrent.TimeoutException",
+            "io.smallrye.mutiny.TimeoutException",
+            "org.eclipse.microprofile.faulttolerance.exceptions.TimeoutException");
+
+    private static boolean isTimeoutException(Throwable exception) {
+        return TIMEOUT_EXCEPTION_NAMES.contains(exception.getClass().getName());
     }
 
     private List<JsonRPCExceptionMapper> getExceptionMappers() {
