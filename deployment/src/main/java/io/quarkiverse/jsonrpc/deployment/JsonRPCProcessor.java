@@ -330,7 +330,8 @@ public class JsonRPCProcessor {
         }
 
         OpenRPCDocumentGenerator generator = new OpenRPCDocumentGenerator(
-                combinedIndexBuildItem.getIndex(), jsonRPCConfig.openrpc().schemaSimpleNames());
+                combinedIndexBuildItem.getIndex(), jsonRPCConfig.openrpc().schemaSimpleNames(),
+                jsonRPCConfig.openrpc().title(), jsonRPCConfig.openrpc().version());
         String openrpcDocument = generator.generate(jsonRPCMethodsBuildItem.getMethodsMap());
 
         routeProducer.produce(

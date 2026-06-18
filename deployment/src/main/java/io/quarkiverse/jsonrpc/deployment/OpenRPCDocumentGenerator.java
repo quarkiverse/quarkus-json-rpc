@@ -1,6 +1,7 @@
 package io.quarkiverse.jsonrpc.deployment;
 
 import java.lang.reflect.Modifier;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -59,12 +60,16 @@ public class OpenRPCDocumentGenerator {
     private final IndexView index;
     private final ObjectMapper mapper;
     private final boolean schemaSimpleNames;
+    private final String title;
+    private final String version;
     private final Map<String, ObjectNode> componentSchemas = new TreeMap<>();
     private final Set<DotName> schemasInProgress = new HashSet<>();
 
-    public OpenRPCDocumentGenerator(IndexView index, boolean schemaSimpleNames) {
+    public OpenRPCDocumentGenerator(IndexView index, boolean schemaSimpleNames, String title, String version) {
         this.index = index;
         this.schemaSimpleNames = schemaSimpleNames;
+        this.title = title;
+        this.version = version;
         this.mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
     }
 
@@ -73,18 +78,20 @@ public class OpenRPCDocumentGenerator {
         root.put("openrpc", OPENRPC_VERSION);
 
         ObjectNode info = mapper.createObjectNode();
-        info.put("title", "JSON-RPC API");
-        info.put("version", "1.0.0");
+        info.put("title", title);
+        info.put("version", version);
         root.set("info", info);
 
         ArrayNode methods = mapper.createArrayNode();
 
-        for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> entry : methodsMap.entrySet()) {
-            ObjectNode methodNode = buildMethodObject(entry.getKey(), entry.getValue());
-            if (methodNode != null) {
-                methods.add(methodNode);
-            }
-        }
+        methodsMap.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getKey().getName()))
+                .forEach(entry -> {
+                    ObjectNode methodNode = buildMethodObject(entry.getKey(), entry.getValue());
+                    if (methodNode != null) {
+                        methods.add(methodNode);
+                    }
+                });
         root.set("methods", methods);
 
         if (!componentSchemas.isEmpty()) {
@@ -369,6 +376,7 @@ public class OpenRPCDocumentGenerator {
 
     private void collectProperties(ClassInfo classInfo, ObjectNode properties) {
         Set<String> ignoredByField = new HashSet<>();
+        Set<String> ignoredByGetter = new HashSet<>();
         Map<String, String> fieldRenames = new HashMap<>();
 
         for (FieldInfo field : classInfo.fields()) {
@@ -383,11 +391,6 @@ public class OpenRPCDocumentGenerator {
             if (!resolvedName.equals(field.name())) {
                 fieldRenames.put(field.name(), resolvedName);
             }
-            if (Modifier.isPublic(field.flags())) {
-                if (!properties.has(resolvedName)) {
-                    properties.set(resolvedName, typeToJsonSchema(field.type()));
-                }
-            }
         }
 
         for (MethodInfo method : classInfo.methods()) {
@@ -395,16 +398,15 @@ public class OpenRPCDocumentGenerator {
             if (method.parametersCount() != 0 || method.returnType().kind() == Type.Kind.VOID) {
                 continue;
             }
-            if (method.hasAnnotation(JSON_IGNORE)) {
+            String derivedName = derivePropertyName(methodName);
+            if (derivedName == null) {
                 continue;
             }
-            String derivedName = null;
-            if (methodName.startsWith("get") && methodName.length() > 3) {
-                derivedName = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
-            } else if (methodName.startsWith("is") && methodName.length() > 2) {
-                derivedName = Character.toLowerCase(methodName.charAt(2)) + methodName.substring(3);
+            if (method.hasAnnotation(JSON_IGNORE)) {
+                ignoredByGetter.add(derivedName);
+                continue;
             }
-            if (derivedName != null && !ignoredByField.contains(derivedName)) {
+            if (!ignoredByField.contains(derivedName)) {
                 String propertyName = resolvePropertyName(method.annotation(JSON_PROPERTY), derivedName);
                 if (propertyName.equals(derivedName) && fieldRenames.containsKey(derivedName)) {
                     propertyName = fieldRenames.get(derivedName);
@@ -414,6 +416,32 @@ public class OpenRPCDocumentGenerator {
                 }
             }
         }
+
+        Set<String> allIgnored = new HashSet<>(ignoredByField);
+        allIgnored.addAll(ignoredByGetter);
+
+        for (FieldInfo field : classInfo.fields()) {
+            if (Modifier.isStatic(field.flags()) || !Modifier.isPublic(field.flags())) {
+                continue;
+            }
+            if (allIgnored.contains(field.name())) {
+                continue;
+            }
+            String resolvedName = resolvePropertyName(field.annotation(JSON_PROPERTY), field.name());
+            if (!properties.has(resolvedName)) {
+                properties.set(resolvedName, typeToJsonSchema(field.type()));
+            }
+        }
+    }
+
+    private String derivePropertyName(String methodName) {
+        if (methodName.startsWith("get") && methodName.length() > 3) {
+            return Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
+        }
+        if (methodName.startsWith("is") && methodName.length() > 2) {
+            return Character.toLowerCase(methodName.charAt(2)) + methodName.substring(3);
+        }
+        return null;
     }
 
     private String resolvePropertyName(AnnotationInstance jsonProperty, String defaultName) {
@@ -466,6 +494,7 @@ public class OpenRPCDocumentGenerator {
         return STREAMING_TYPES.contains(name);
     }
 
+    @SuppressWarnings("rawtypes")
     private MethodInfo findJandexMethod(JsonRPCMethod method) {
         ClassInfo classInfo = index.getClassByName(method.getClazz().getName());
         if (classInfo == null) {
