@@ -63,6 +63,7 @@ import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
 import io.quarkus.devui.spi.buildtime.BuildTimeActionBuildItem;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
 import io.quarkus.devui.spi.page.Page;
+import io.quarkus.smallrye.health.deployment.spi.HealthBuildItem;
 import io.quarkus.vertx.http.deployment.FilterBuildItem;
 import io.quarkus.vertx.http.deployment.HttpRootPathBuildItem;
 import io.quarkus.vertx.http.deployment.RouteBuildItem;
@@ -287,6 +288,12 @@ public class JsonRPCProcessor {
         } else {
             recorder.clearMetrics();
         }
+    }
+
+    @BuildStep
+    HealthBuildItem addHealthCheck(JsonRPCConfig config) {
+        return new HealthBuildItem("io.quarkiverse.jsonrpc.runtime.JsonRPCHealthCheck",
+                config.health().enabled());
     }
 
     @BuildStep
