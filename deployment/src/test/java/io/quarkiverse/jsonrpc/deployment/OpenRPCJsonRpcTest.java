@@ -235,6 +235,28 @@ public class OpenRPCJsonRpcTest extends JsClientTestBase {
     }
 
     @Test
+    public void testOptionalParamIsNotRequired() throws Exception {
+        String body = httpGet("/json-rpc/openrpc.json");
+        JsonObject doc = new JsonObject(body);
+
+        JsonObject method = findMethod(doc, "CollectionResource#withDefault(name|title)");
+        assertNotNull(method, "Should find CollectionResource#withDefault(name|title)");
+
+        JsonArray params = method.getJsonArray("params");
+        assertEquals(2, params.size());
+
+        JsonObject nameParam = params.getJsonObject(0);
+        assertEquals("name", nameParam.getString("name"));
+        assertTrue(nameParam.getBoolean("required"), "String param should be required");
+
+        JsonObject titleParam = params.getJsonObject(1);
+        assertEquals("title", titleParam.getString("name"));
+        assertFalse(titleParam.getBoolean("required"), "Optional<String> param should not be required");
+        assertEquals("string", titleParam.getJsonObject("schema").getString("type"),
+                "Optional<String> schema should unwrap to string");
+    }
+
+    @Test
     public void testJsonIgnoreExcludesSchemaField() throws Exception {
         String body = httpGet("/json-rpc/openrpc.json");
         JsonObject doc = new JsonObject(body);

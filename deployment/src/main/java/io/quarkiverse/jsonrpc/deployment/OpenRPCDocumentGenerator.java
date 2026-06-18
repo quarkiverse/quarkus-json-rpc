@@ -1,5 +1,7 @@
 package io.quarkiverse.jsonrpc.deployment;
 
+import java.lang.reflect.Modifier;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +50,8 @@ public class OpenRPCDocumentGenerator {
 
     private static final DotName MAP = DotName.createSimple("java.util.Map");
     private static final DotName OPTIONAL = DotName.createSimple("java.util.Optional");
+
+    private static final DotName JAVA_LANG_OBJECT = DotName.createSimple("java.lang.Object");
 
     private static final DotName JSON_IGNORE = DotName.createSimple("com.fasterxml.jackson.annotation.JsonIgnore");
     private static final DotName JSON_PROPERTY = DotName.createSimple("com.fasterxml.jackson.annotation.JsonProperty");
@@ -140,13 +144,24 @@ public class OpenRPCDocumentGenerator {
 
         List<String> paramNames = List.copyOf(method.getParams().keySet());
         for (int i = 0; i < paramNames.size(); i++) {
+            Type paramType = jandexMethod.parameterType(i);
             ObjectNode param = mapper.createObjectNode();
             param.put("name", paramNames.get(i));
-            param.put("required", true);
-            param.set("schema", typeToJsonSchema(jandexMethod.parameterType(i)));
+            param.put("required", !isOptionalType(paramType));
+            param.set("schema", typeToJsonSchema(paramType));
             params.add(param);
         }
         return params;
+    }
+
+    private boolean isOptionalType(Type type) {
+        if (type.kind() == Type.Kind.PARAMETERIZED_TYPE) {
+            return OPTIONAL.equals(type.asParameterizedType().name());
+        }
+        if (type.kind() == Type.Kind.CLASS) {
+            return OPTIONAL.equals(type.asClassType().name());
+        }
+        return false;
     }
 
     private ObjectNode typeToJsonSchema(Type type) {
@@ -316,16 +331,15 @@ public class OpenRPCDocumentGenerator {
         if (!componentSchemas.containsKey(schemaKey) && !schemasInProgress.contains(name)) {
             schemasInProgress.add(name);
             ObjectNode pojoSchema = buildPojoSchema(name);
-            if (pojoSchema != null) {
-                componentSchemas.put(schemaKey, pojoSchema);
-            }
             schemasInProgress.remove(name);
+            if (pojoSchema == null) {
+                return mapper.createObjectNode();
+            }
+            componentSchemas.put(schemaKey, pojoSchema);
         }
 
         return createRef(schemaKey);
     }
-
-    private static final DotName JAVA_LANG_OBJECT = DotName.createSimple("java.lang.Object");
 
     private ObjectNode buildPojoSchema(DotName name) {
         ClassInfo classInfo = index.getClassByName(name);
@@ -355,10 +369,10 @@ public class OpenRPCDocumentGenerator {
 
     private void collectProperties(ClassInfo classInfo, ObjectNode properties) {
         Set<String> ignoredByField = new HashSet<>();
-        Map<String, String> fieldRenames = new java.util.HashMap<>();
+        Map<String, String> fieldRenames = new HashMap<>();
 
         for (FieldInfo field : classInfo.fields()) {
-            if (java.lang.reflect.Modifier.isStatic(field.flags())) {
+            if (Modifier.isStatic(field.flags())) {
                 continue;
             }
             if (field.hasAnnotation(JSON_IGNORE)) {
@@ -369,7 +383,7 @@ public class OpenRPCDocumentGenerator {
             if (!resolvedName.equals(field.name())) {
                 fieldRenames.put(field.name(), resolvedName);
             }
-            if (java.lang.reflect.Modifier.isPublic(field.flags())) {
+            if (Modifier.isPublic(field.flags())) {
                 if (!properties.has(resolvedName)) {
                     properties.set(resolvedName, typeToJsonSchema(field.type()));
                 }
