@@ -122,6 +122,10 @@ Streaming types (`Multi<T>`, `Flow.Publisher<T>`) are also unwrapped, and the me
 }
 ----
 
+== Dev UI
+
+During development, the OpenRPC document is also available in the Quarkus Dev UI. The JSON-RPC card includes an "OpenRPC" page that displays the full document with syntax highlighting.
+
 == Configuration
 
 [cols="1,1,2"]

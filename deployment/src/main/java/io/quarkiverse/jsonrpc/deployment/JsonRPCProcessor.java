@@ -597,6 +597,14 @@ public class JsonRPCProcessor {
                 .icon("font-awesome-solid:plug")
                 .componentLink("qwc-json-rpc-sessions.js"));
 
+        // OpenRPC schema viewer
+        if (jsonRPCConfig.openrpc().enabled()) {
+            card.addPage(Page.externalPageBuilder("OpenRPC")
+                    .url(jsonRPCConfig.openrpc().path())
+                    .isJsonContent()
+                    .icon("font-awesome-solid:file-code"));
+        }
+
         return card;
     }
 
