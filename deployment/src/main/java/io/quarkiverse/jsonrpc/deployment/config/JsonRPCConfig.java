@@ -23,4 +23,10 @@ public interface JsonRPCConfig {
      */
     @WithName("js-client")
     JsonRPCClientConfig jsClient();
+
+    /**
+     * Configuration properties for the health check
+     */
+    @WithName("health")
+    JsonRPCHealthConfig health();
 }
