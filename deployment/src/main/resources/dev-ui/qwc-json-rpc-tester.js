@@ -129,7 +129,7 @@ export class QwcJsonRpcTester extends LitElement {
 
     render() {
         return html`
-            <span class="endpoint-info">Endpoint: <code>${endpointPath}</code></span>
+            <span class="endpoint-info">Endpoint: <code>${this._selectedMethod?.path || endpointPath}</code></span>
 
             <div class="form-row">
                 <label>Method:</label>
@@ -235,7 +235,8 @@ export class QwcJsonRpcTester extends LitElement {
     _invokeViaWebSocket(params) {
         const loc = window.location;
         const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${loc.host}${endpointPath}`;
+        const methodPath = this._selectedMethod?.path || endpointPath;
+        const wsUrl = `${wsProtocol}//${loc.host}${methodPath}`;
 
         const ws = new WebSocket(wsUrl);
         // Strip params suffix from the key — the server appends param names

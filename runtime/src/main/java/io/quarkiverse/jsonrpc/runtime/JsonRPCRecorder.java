@@ -1,6 +1,7 @@
 package io.quarkiverse.jsonrpc.runtime;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -51,7 +52,8 @@ public class JsonRPCRecorder {
     }
 
     public Function<SyntheticCreationalContext<JsonRPCRouter>, JsonRPCRouter> createJsonRpcRouter(
-            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap,
+            Map<String, String> scopeToPath, String defaultPath) {
         return new Function<>() {
             @Override
             public JsonRPCRouter apply(SyntheticCreationalContext<JsonRPCRouter> context) {
@@ -59,6 +61,7 @@ public class JsonRPCRecorder {
                         context.getInjectedReference(JsonRPCCodec.class),
                         context.getInjectedReference(JsonRPCSessions.class),
                         methodsMap,
+                        scopeToPath, defaultPath,
                         runtimeConfig.getValue().methodTimeout().orElse(null));
             }
         };
@@ -79,8 +82,8 @@ public class JsonRPCRecorder {
         return new JsonRPCWebSocket(beanContainer.beanInstance(JsonRPCRouter.class));
     }
 
-    public Handler<RoutingContext> subProtocolHandler(String wsPath) {
-        return new JsonRPCSubProtocolHandler(wsPath);
+    public Handler<RoutingContext> subProtocolHandler(Set<String> wsPaths) {
+        return new JsonRPCSubProtocolHandler(wsPaths);
     }
 
     public Handler<RoutingContext> openRpcHandler(String openrpcDocument) {

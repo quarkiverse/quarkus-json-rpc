@@ -72,16 +72,20 @@ public class JsonRPCRouter {
 
     private final Map<String, String> orderedParameterKeyToNamedKey = new HashMap<>();
 
+    private final Map<String, String> methodKeyToAllowedPath = new HashMap<>();
+
     private final JsonRPCSessions sessions;
 
     private final Duration methodTimeout;
 
     public JsonRPCRouter(JsonRPCCodec codec, JsonRPCSessions sessions,
-            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap, Duration methodTimeout) {
+            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap,
+            Map<String, String> scopeToPath, String defaultPath,
+            Duration methodTimeout) {
         this.codec = codec;
         this.sessions = sessions;
         this.methodTimeout = methodTimeout;
-        populateJsonRPCMethods(methodsMap);
+        populateJsonRPCMethods(methodsMap, scopeToPath, defaultPath);
     }
 
     private static JsonRPCMetricsHandler metrics() {
@@ -93,7 +97,8 @@ public class JsonRPCRouter {
      *
      * @param methodsMap
      */
-    private void populateJsonRPCMethods(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+    private void populateJsonRPCMethods(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap,
+            Map<String, String> scopeToPath, String defaultPath) {
         for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> method : methodsMap.entrySet()) {
             JsonRPCMethodName methodName = method.getKey();
             JsonRPCMethod jsonRpcMethod = method.getValue();
@@ -113,10 +118,14 @@ public class JsonRPCRouter {
                 }
                 ReflectionInfo reflectionInfo = new ReflectionInfo(jsonRpcMethod.getClazz(), providerInstance, javaMethod,
                         params, jsonRpcMethod.getExecutionMode());
-                jsonRpcToJava.put(methodName.toString(), reflectionInfo);
+                String key = methodName.toString();
+                jsonRpcToJava.put(key, reflectionInfo);
                 if (methodName.hasOrderedParameterKey()) {
-                    orderedParameterKeyToNamedKey.put(methodName.getOrderedParameterKey(), methodName.toString());
+                    orderedParameterKeyToNamedKey.put(methodName.getOrderedParameterKey(), key);
                 }
+
+                String scope = key.substring(0, key.indexOf('#'));
+                methodKeyToAllowedPath.put(key, scopeToPath.getOrDefault(scope, defaultPath));
             } catch (NoSuchMethodException | SecurityException ex) {
                 throw new RuntimeException(ex);
             }
@@ -437,6 +446,12 @@ public class JsonRPCRouter {
         }
 
         if (this.jsonRpcToJava.containsKey(key)) {
+            String allowedPath = methodKeyToAllowedPath.get(key);
+            if (allowedPath != null && !allowedPath.equals(s.path())) {
+                return Uni.createFrom().item(new DispatchResult(new JsonRPCResponse<>(jsonRpcRequest.getId(),
+                        new JsonRPCResponse.Error(JsonRPCKeys.METHOD_NOT_FOUND,
+                                "Method [" + jsonRpcRequest.getMethod() + "] not found"))));
+            }
             ReflectionInfo reflectionInfo = this.jsonRpcToJava.get(key);
             Object target = Arc.container().select(reflectionInfo.bean).get();
             String methodName = jsonRpcRequest.getMethod();

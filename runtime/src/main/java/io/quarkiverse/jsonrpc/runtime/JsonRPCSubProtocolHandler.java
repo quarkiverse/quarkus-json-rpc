@@ -42,15 +42,15 @@ public class JsonRPCSubProtocolHandler implements Handler<RoutingContext> {
 
     private static final Set<String> ALLOWED_HEADERS = Set.of("authorization");
 
-    private final String wsPath;
+    private final Set<String> wsPaths;
 
-    public JsonRPCSubProtocolHandler(String wsPath) {
-        this.wsPath = wsPath;
+    public JsonRPCSubProtocolHandler(Set<String> wsPaths) {
+        this.wsPaths = wsPaths;
     }
 
     @Override
     public void handle(RoutingContext event) {
-        if (!event.request().path().equals(wsPath)) {
+        if (!wsPaths.contains(event.request().path())) {
             event.next();
             return;
         }

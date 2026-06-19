@@ -49,6 +49,7 @@ export class QwcJsonRpcMethods extends LitElement {
                 <vaadin-grid-sort-column path="key" header="Key" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="className" header="Class" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="methodName" header="Method" auto-width resizable></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column path="path" header="Path" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="parameters" header="Parameters" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column path="executionMode" header="Execution Mode" auto-width resizable></vaadin-grid-sort-column>
                 <vaadin-grid-column header="Security" auto-width resizable

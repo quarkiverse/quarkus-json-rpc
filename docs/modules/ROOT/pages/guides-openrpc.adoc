@@ -124,6 +124,21 @@ Streaming types (`Multi<T>`, `Flow.Publisher<T>`) are also unwrapped, and the me
 }
 ----
 
+== Custom Path APIs
+
+When `@JsonRPCApi(path = "...")` is used, separate OpenRPC documents are generated for each WebSocket path. The default document at `/json-rpc/openrpc.json` contains only methods served on the default path. Each custom path gets its own document:
+
+[source,shell]
+----
+# Methods on the default /json-rpc path
+curl http://localhost:8080/json-rpc/openrpc.json
+
+# Methods on /admin-rpc
+curl http://localhost:8080/admin-rpc/openrpc.json
+----
+
+This ensures each OpenRPC document accurately reflects the methods available on its corresponding WebSocket endpoint.
+
 == Dev UI
 
 During development, the OpenRPC document is also available in the Quarkus Dev UI. The JSON-RPC card includes an "OpenRPC" page that displays the full document with syntax highlighting.
