@@ -65,6 +65,16 @@ public class CustomPathJsonRpcTest extends JsonRpcParent {
     }
 
     @Test
+    public void testDefaultPathMethodNotCallableFromCustomPath() throws Exception {
+        JsonObject response = getJsonRpcRawResponse(customRpcUri, "HelloResource#hello");
+        JsonObject error = response.getJsonObject("error");
+        Assertions.assertNotNull(error, "Expected error response when calling default-path method from custom path");
+        Assertions.assertEquals(-32601, error.getInteger("code"));
+        Assertions.assertTrue(error.getString("message").contains("not found"),
+                "Error message should indicate method not found: " + error.getString("message"));
+    }
+
+    @Test
     public void testMultiStreamOverCustomPath() throws Exception {
         var client = vertx.createWebSocketClient();
         try {

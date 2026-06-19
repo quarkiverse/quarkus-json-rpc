@@ -485,9 +485,8 @@ public class JsonRPCProcessor {
         // Create additional clients for custom paths
         Set<String> extraPaths = new TreeSet<>(scopeToPath.values());
         Map<String, String> pathToClientVar = new HashMap<>();
-        int clientIdx = 0;
         for (String path : extraPaths) {
-            String varName = "_client" + (clientIdx++);
+            String varName = pathToClientVar(path);
             pathToClientVar.put(path, varName);
             js.append("const ").append(varName).append(" = new JsonRPCClient({ path: '")
                     .append(escapeJsString(path)).append("' });\n");
@@ -612,6 +611,25 @@ public class JsonRPCProcessor {
     }
 
     private record MethodEntry(String scope, String methodName, JsonRPCMethod method) {
+    }
+
+    private static String pathToClientVar(String path) {
+        String stripped = path.startsWith("/") ? path.substring(1) : path;
+        String[] segments = stripped.split("[/-]");
+        StringBuilder sb = new StringBuilder("_");
+        for (int i = 0; i < segments.length; i++) {
+            String seg = segments[i];
+            if (seg.isEmpty()) {
+                continue;
+            }
+            if (i == 0) {
+                sb.append(seg);
+            } else {
+                sb.append(Character.toUpperCase(seg.charAt(0)));
+                sb.append(seg.substring(1));
+            }
+        }
+        return sb.toString();
     }
 
     private static String escapeJsString(String value) {
