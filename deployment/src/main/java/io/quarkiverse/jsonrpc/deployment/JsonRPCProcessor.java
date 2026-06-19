@@ -356,17 +356,54 @@ public class JsonRPCProcessor {
             return;
         }
 
-        OpenRPCDocumentGenerator generator = new OpenRPCDocumentGenerator(
+        Map<JsonRPCMethodName, JsonRPCMethod> allMethods = jsonRPCMethodsBuildItem.getMethodsMap();
+        Map<String, String> scopeToPath = jsonRPCMethodsBuildItem.getScopeToPath();
+
+        // Partition methods: default-path methods vs custom-path methods
+        Map<JsonRPCMethodName, JsonRPCMethod> defaultMethods = new HashMap<>();
+        Map<String, Map<JsonRPCMethodName, JsonRPCMethod>> perPathMethods = new HashMap<>();
+
+        for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> entry : allMethods.entrySet()) {
+            String key = entry.getKey().getName();
+            String scope = key.substring(0, key.indexOf('#'));
+            String customPath = scopeToPath.get(scope);
+            if (customPath != null) {
+                perPathMethods.computeIfAbsent(customPath, k -> new HashMap<>())
+                        .put(entry.getKey(), entry.getValue());
+            } else {
+                defaultMethods.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        // Default path OpenRPC document
+        OpenRPCDocumentGenerator defaultGenerator = new OpenRPCDocumentGenerator(
                 combinedIndexBuildItem.getIndex(), jsonRPCConfig.openrpc().schemaSimpleNames(),
                 jsonRPCConfig.openrpc().title(), jsonRPCConfig.openrpc().version());
-        String openrpcDocument = generator.generate(jsonRPCMethodsBuildItem.getMethodsMap());
+        String defaultDoc = defaultGenerator.generate(defaultMethods);
 
         routeProducer.produce(
                 httpRootPathBuildItem.routeBuilder()
                         .route(jsonRPCConfig.openrpc().path())
                         .routeConfigKey("quarkus.json-rpc.openrpc.path")
-                        .handler(recorder.openRpcHandler(openrpcDocument))
+                        .handler(recorder.openRpcHandler(defaultDoc))
                         .build());
+
+        // Per-path OpenRPC documents
+        for (Map.Entry<String, Map<JsonRPCMethodName, JsonRPCMethod>> pathEntry : perPathMethods.entrySet()) {
+            String customPath = pathEntry.getKey();
+            String openrpcPath = customPath + "/openrpc.json";
+
+            OpenRPCDocumentGenerator pathGenerator = new OpenRPCDocumentGenerator(
+                    combinedIndexBuildItem.getIndex(), jsonRPCConfig.openrpc().schemaSimpleNames(),
+                    jsonRPCConfig.openrpc().title(), jsonRPCConfig.openrpc().version());
+            String pathDoc = pathGenerator.generate(pathEntry.getValue());
+
+            routeProducer.produce(
+                    httpRootPathBuildItem.routeBuilder()
+                            .route(openrpcPath)
+                            .handler(recorder.openRpcHandler(pathDoc))
+                            .build());
+        }
     }
 
     @BuildStep
@@ -587,6 +624,8 @@ public class JsonRPCProcessor {
             CombinedIndexBuildItem combinedIndexBuildItem) {
         CardPageBuildItem card = new CardPageBuildItem();
         IndexView index = combinedIndexBuildItem.getIndex();
+        Map<String, String> scopeToPath = jsonRPCMethodsBuildItem.getScopeToPath();
+        String defaultPath = jsonRPCConfig.webSocket().path();
 
         // Build-time data: registered methods table
         List<Map<String, Object>> methodsList = new ArrayList<>();
@@ -595,9 +634,14 @@ public class JsonRPCProcessor {
             JsonRPCMethodName methodName = entry.getKey();
             JsonRPCMethod method = entry.getValue();
 
-            methodData.put("key", methodName.getName());
+            String key = methodName.getName();
+            methodData.put("key", key);
             methodData.put("className", method.getClazz().getSimpleName());
             methodData.put("methodName", method.getMethodName());
+
+            String scope = key.substring(0, key.indexOf('#'));
+            String wsPath = scopeToPath.getOrDefault(scope, defaultPath);
+            methodData.put("path", wsPath);
 
             if (method.hasParams()) {
                 List<String> params = new ArrayList<>();
@@ -628,7 +672,7 @@ public class JsonRPCProcessor {
         }
         card.addBuildTimeData("methods", methodsList,
                 "All registered JSON-RPC methods with their signatures, execution modes, and security constraints", true);
-        card.addBuildTimeData("endpointPath", jsonRPCConfig.webSocket().path(),
+        card.addBuildTimeData("endpointPath", defaultPath,
                 "The WebSocket endpoint path for JSON-RPC connections", true);
 
         // Methods table page
@@ -649,12 +693,19 @@ public class JsonRPCProcessor {
                 .icon("font-awesome-solid:plug")
                 .componentLink("qwc-json-rpc-sessions.js"));
 
-        // OpenRPC schema viewer
+        // OpenRPC schema viewers
         if (jsonRPCConfig.openrpc().enabled()) {
             card.addPage(Page.externalPageBuilder("OpenRPC")
                     .url(jsonRPCConfig.openrpc().path())
                     .isJsonContent()
                     .icon("font-awesome-solid:file-code"));
+
+            for (String extraPath : jsonRPCMethodsBuildItem.getExtraPaths()) {
+                card.addPage(Page.externalPageBuilder("OpenRPC (" + extraPath + ")")
+                        .url(extraPath + "/openrpc.json")
+                        .isJsonContent()
+                        .icon("font-awesome-solid:file-code"));
+            }
         }
 
         return card;
