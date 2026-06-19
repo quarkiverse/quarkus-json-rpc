@@ -52,7 +52,8 @@ public class JsonRPCRecorder {
     }
 
     public Function<SyntheticCreationalContext<JsonRPCRouter>, JsonRPCRouter> createJsonRpcRouter(
-            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
+            Map<JsonRPCMethodName, JsonRPCMethod> methodsMap,
+            Map<String, String> scopeToPath, String defaultPath) {
         return new Function<>() {
             @Override
             public JsonRPCRouter apply(SyntheticCreationalContext<JsonRPCRouter> context) {
@@ -60,6 +61,7 @@ public class JsonRPCRecorder {
                         context.getInjectedReference(JsonRPCCodec.class),
                         context.getInjectedReference(JsonRPCSessions.class),
                         methodsMap,
+                        scopeToPath, defaultPath,
                         runtimeConfig.getValue().methodTimeout().orElse(null));
             }
         };

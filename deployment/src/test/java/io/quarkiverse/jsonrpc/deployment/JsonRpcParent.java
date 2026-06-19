@@ -100,6 +100,21 @@ public class JsonRpcParent {
         });
     }
 
+    protected JsonObject getJsonRpcRawResponse(URI uri, String providedInput) throws Exception {
+        return getJsonRpcRawResponse(uri, providedInput, Map.of());
+    }
+
+    protected JsonObject getJsonRpcRawResponse(URI uri, String providedInput, Map<String, Object> params)
+            throws Exception {
+        int id = count.incrementAndGet();
+        return jsonRpcRawResponse(uri, id, (ws, queue) -> {
+            ws.textMessageHandler(msg -> {
+                queue.add(msg);
+            });
+            ws.writeTextMessage(getJsonRPCRequest(id, providedInput, params));
+        });
+    }
+
     private JsonObject jsonRpcRawResponse(int expectedId, BiConsumer<WebSocket, Queue<String>> action)
             throws Exception {
         return jsonRpcRawResponse(jsonRpcUri, expectedId, action);

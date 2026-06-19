@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -79,6 +81,7 @@ public class JsonRPCProcessor {
     private static final DotName JSON_RPC_API = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCApi");
     private static final DotName JSON_RPC_IGNORE = DotName.createSimple("io.quarkiverse.jsonrpc.api.JsonRPCIgnore");
     private static final Pattern JS_IDENTIFIER = Pattern.compile("^[a-zA-Z_$][a-zA-Z0-9_$]*$");
+    private static final Pattern VALID_PATH_PATTERN = Pattern.compile("^/[a-zA-Z0-9._/-]+$");
     private static final Set<String> JS_RESERVED_WORDS = Set.of(
             "break", "case", "catch", "class", "const", "continue", "debugger", "default",
             "delete", "do", "else", "enum", "export", "extends", "false", "finally", "for",
@@ -136,6 +139,15 @@ public class JsonRPCProcessor {
                 if (!path.startsWith("/")) {
                     throw new IllegalArgumentException(
                             "@JsonRPCApi path on " + classInfo.name() + " must start with '/', got: " + path);
+                }
+                // Normalize: strip trailing slashes
+                while (path.length() > 1 && path.endsWith("/")) {
+                    path = path.substring(0, path.length() - 1);
+                }
+                if (!VALID_PATH_PATTERN.matcher(path).matches()) {
+                    throw new IllegalArgumentException(
+                            "@JsonRPCApi path on " + classInfo.name()
+                                    + " contains invalid characters, got: " + path);
                 }
                 extraPaths.add(path);
                 scopeToPath.put(scope, path);
@@ -251,7 +263,8 @@ public class JsonRPCProcessor {
             JsonRPCConfig jsonRPCConfig,
             JsonRPCRecorder recorder,
             BuildProducer<SyntheticBeanBuildItem> beanProducer,
-            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem) {
+            JsonRPCMethodsBuildItem jsonRPCMethodsBuildItem,
+            HttpRootPathBuildItem httpRootPathBuildItem) {
         if (jsonRPCConfig.webSocket().enabled()) {
             beanProducer.produce(SyntheticBeanBuildItem
                     .configure(JsonRPCSessions.class)
@@ -276,7 +289,10 @@ public class JsonRPCProcessor {
                     .unremovable()
                     .addInjectionPoint(ClassType.create(JsonRPCCodec.class))
                     .addInjectionPoint(ClassType.create(JsonRPCSessions.class))
-                    .createWith(recorder.createJsonRpcRouter(jsonRPCMethodsBuildItem.getMethodsMap()))
+                    .createWith(recorder.createJsonRpcRouter(
+                            jsonRPCMethodsBuildItem.getMethodsMap(),
+                            resolvedScopeToPath(jsonRPCMethodsBuildItem, httpRootPathBuildItem),
+                            httpRootPathBuildItem.resolvePath(jsonRPCConfig.webSocket().path())))
                     .scope(ApplicationScoped.class)
                     .done());
 
@@ -467,7 +483,7 @@ public class JsonRPCProcessor {
         js.append("export const client = new JsonRPCClient({ path: '").append(escapeJsString(wsPath)).append("' });\n\n");
 
         // Create additional clients for custom paths
-        Set<String> extraPaths = new java.util.TreeSet<>(scopeToPath.values());
+        Set<String> extraPaths = new TreeSet<>(scopeToPath.values());
         Map<String, String> pathToClientVar = new HashMap<>();
         int clientIdx = 0;
         for (String path : extraPaths) {
@@ -484,7 +500,7 @@ public class JsonRPCProcessor {
         // Multiple overloads of the same method name share one JS proxy entry — the server
         // resolves the correct overload based on parameters. We validate that all overloads
         // agree on their JS client method category (call / subscribe / notify).
-        Map<String, Map<String, MethodEntry>> byScope = new java.util.TreeMap<>();
+        Map<String, Map<String, MethodEntry>> byScope = new TreeMap<>();
         for (Map.Entry<JsonRPCMethodName, JsonRPCMethod> entry : methodsMap.entrySet()) {
             String key = entry.getKey().getName();
             int hashIdx = key.indexOf('#');
@@ -492,7 +508,7 @@ public class JsonRPCProcessor {
             validateJsIdentifier(scope, "@JsonRPCApi scope");
             String methodName = entry.getValue().getMethodName();
             validateJsIdentifier(methodName, "Method name '" + scope + "#" + methodName + "'");
-            Map<String, MethodEntry> scopeMethods = byScope.computeIfAbsent(scope, k -> new java.util.TreeMap<>());
+            Map<String, MethodEntry> scopeMethods = byScope.computeIfAbsent(scope, k -> new TreeMap<>());
             MethodEntry existing = scopeMethods.get(methodName);
             if (existing != null) {
                 String existingCategory = jsClientMethod(existing.method);
@@ -860,6 +876,15 @@ public class JsonRPCProcessor {
                 break;
         }
         return types;
+    }
+
+    private static Map<String, String> resolvedScopeToPath(JsonRPCMethodsBuildItem methods,
+            HttpRootPathBuildItem httpRootPath) {
+        Map<String, String> resolved = new HashMap<>();
+        for (Map.Entry<String, String> entry : methods.getScopeToPath().entrySet()) {
+            resolved.put(entry.getKey(), httpRootPath.resolvePath(entry.getValue()));
+        }
+        return resolved;
     }
 
     private Class toClass(Type type) {

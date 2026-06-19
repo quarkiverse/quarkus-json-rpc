@@ -55,9 +55,13 @@ public class CustomPathJsonRpcTest extends JsonRpcParent {
     }
 
     @Test
-    public void testCustomPathMethodCallableFromDefaultPath() throws Exception {
-        String result = getJsonRpcResponse("CustomPathResource#customHello");
-        Assertions.assertTrue(result.startsWith("Hello from custom path [executor-thread-"), result);
+    public void testCustomPathMethodNotCallableFromDefaultPath() throws Exception {
+        JsonObject response = getJsonRpcRawResponse("CustomPathResource#customHello");
+        JsonObject error = response.getJsonObject("error");
+        Assertions.assertNotNull(error, "Expected error response when calling custom-path method from default path");
+        Assertions.assertEquals(-32601, error.getInteger("code"));
+        Assertions.assertTrue(error.getString("message").contains("not found"),
+                "Error message should indicate method not found: " + error.getString("message"));
     }
 
     @Test

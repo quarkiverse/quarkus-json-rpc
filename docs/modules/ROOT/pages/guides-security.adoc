@@ -159,9 +159,13 @@ quarkus.http.auth.permission.public-rpc.paths=/public-rpc
 quarkus.http.auth.permission.public-rpc.policy=permit
 ----
 
-This provides two layers of security isolation: unauthenticated users cannot even establish a WebSocket connection to `/admin-rpc`, and individual methods are further protected by `@RolesAllowed` annotations.
+This provides two layers of security isolation:
 
-IMPORTANT: Path-based HTTP policies control who can _connect_ to a WebSocket endpoint. Once connected to any endpoint, all registered JSON-RPC methods are callable regardless of which path the client connected through. Always use `@RolesAllowed` or other method-level security annotations to protect sensitive methods — do not rely on path-based HTTP policies alone.
+1. *Path isolation* — methods declared with `@JsonRPCApi(path = "/admin-rpc")` are only callable from the `/admin-rpc` WebSocket endpoint. A client connected to `/public-rpc` cannot invoke `AdminService` methods.
+2. *Connection-level auth* — unauthenticated users cannot even establish a WebSocket connection to `/admin-rpc`.
+3. *Method-level auth* — individual methods are further protected by `@RolesAllowed` annotations as defense-in-depth.
+
+TIP: While path isolation prevents cross-path method calls, using `@RolesAllowed` or other method-level security annotations is still recommended as defense-in-depth.
 
 See xref:guides-creating-api.adoc#_custom_path[Creating an API — Custom Path] for details on the `path` attribute.
 

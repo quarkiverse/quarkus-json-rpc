@@ -1,6 +1,7 @@
 package io.quarkiverse.jsonrpc.deployment;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,7 +39,7 @@ public class CustomPathOpenRPCTest extends JsClientTestBase {
         boolean hasCustom = methods.stream()
                 .map(o -> ((JsonObject) o).getString("name"))
                 .anyMatch(name -> name.startsWith("CustomPathResource#"));
-        assertTrue(!hasCustom, "Default OpenRPC should not contain CustomPathResource methods");
+        assertFalse(hasCustom, "Default OpenRPC should not contain CustomPathResource methods");
     }
 
     @Test
@@ -59,6 +60,6 @@ public class CustomPathOpenRPCTest extends JsClientTestBase {
         boolean hasHello = methods.stream()
                 .map(o -> ((JsonObject) o).getString("name"))
                 .anyMatch(name -> name.startsWith("HelloResource#"));
-        assertTrue(!hasHello, "Custom path OpenRPC should not contain HelloResource methods");
+        assertFalse(hasHello, "Custom path OpenRPC should not contain HelloResource methods");
     }
 }

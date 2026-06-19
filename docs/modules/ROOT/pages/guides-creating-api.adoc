@@ -160,7 +160,7 @@ public class AdminService {
 }
 ----
 
-This registers an additional WebSocket route at `/admin-rpc`. The methods on `AdminService` are accessible through both the custom path and the default global path.
+This registers an additional WebSocket route at `/admin-rpc`. The methods on `AdminService` are _only_ accessible through the custom path — clients connected to the default global endpoint will receive a "method not found" error if they try to call `AdminService` methods.
 
 You can combine `path` with a custom scope:
 
@@ -211,7 +211,7 @@ By default, all JSON-RPC methods are served through a WebSocket endpoint at:
 ws://localhost:8080/json-rpc
 ----
 
-Classes with a `path` attribute register additional WebSocket routes at their specified paths. Classes without a `path` are served on the default global endpoint.
+Classes with a `path` attribute register additional WebSocket routes at their specified paths and are only callable from those paths. Classes without a `path` are served exclusively on the default global endpoint.
 
 See xref:reference-configuration.adoc[Configuration Reference] to change the default path.
 
