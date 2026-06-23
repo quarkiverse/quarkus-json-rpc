@@ -17,6 +17,7 @@
         <module>deployment</module>
         <module>runtime</module>
         <module>sample</module>
+        <module>rag</module>
     </modules>
 
     <scm>
