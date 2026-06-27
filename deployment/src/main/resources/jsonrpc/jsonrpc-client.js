@@ -149,6 +149,7 @@ export class JsonRPCClient {
         this._ws = ws;
 
         ws.onopen = () => {
+            if (this._ws !== ws) return;
             this._connected = true;
             this._reconnectDelay = 1000;
             while (this._queue.length > 0) {
@@ -158,6 +159,7 @@ export class JsonRPCClient {
         };
 
         ws.onclose = (event) => {
+            if (this._ws !== ws) return;
             this._connected = false;
             this._ws = null;
 
@@ -187,10 +189,12 @@ export class JsonRPCClient {
         };
 
         ws.onerror = (error) => {
+            if (this._ws !== ws) return;
             if (this.onError) this.onError(error);
         };
 
         ws.onmessage = (event) => {
+            if (this._ws !== ws) return;
             try {
                 this._handleMessage(JSON.parse(event.data));
             } catch (e) {
