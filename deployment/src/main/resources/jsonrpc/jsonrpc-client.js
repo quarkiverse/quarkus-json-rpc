@@ -26,6 +26,7 @@ export class JsonRPCClient {
     _pending = new Map();
     _subscriptions = new Map();
     _listeners = new Map();
+    _queue = [];
     _autoReconnect;
     _reconnectDelay;
     _maxReconnectDelay;
@@ -67,9 +68,8 @@ export class JsonRPCClient {
     set url(value) {
         const changed = this._url !== value;
         this._url = value;
-        if (changed && this._ws) {
-            this.disconnect();
-            this.connect();
+        if (changed && !this._manuallyDisconnected) {
+            this._reconnectToNewUrl();
         }
     }
 
@@ -80,9 +80,8 @@ export class JsonRPCClient {
     set path(value) {
         const changed = this._path !== value;
         this._path = value;
-        if (changed && this._ws && !this._url) {
-            this.disconnect();
-            this.connect();
+        if (changed && !this._url && !this._manuallyDisconnected) {
+            this._reconnectToNewUrl();
         }
     }
 
@@ -134,12 +133,17 @@ export class JsonRPCClient {
         this._ws = ws;
 
         ws.onopen = () => {
+            if (this._ws !== ws) return;
             this._connected = true;
             this._reconnectDelay = 1000;
+            while (this._queue.length > 0) {
+                ws.send(JSON.stringify(this._queue.shift()));
+            }
             if (this.onOpen) this.onOpen();
         };
 
         ws.onclose = (event) => {
+            if (this._ws !== ws) return;
             this._connected = false;
             this._ws = null;
 
@@ -169,10 +173,12 @@ export class JsonRPCClient {
         };
 
         ws.onerror = (error) => {
+            if (this._ws !== ws) return;
             if (this.onError) this.onError(error);
         };
 
         ws.onmessage = (event) => {
+            if (this._ws !== ws) return;
             try {
                 this._handleMessage(JSON.parse(event.data));
             } catch (e) {
@@ -183,6 +189,7 @@ export class JsonRPCClient {
 
     disconnect() {
         this._manuallyDisconnected = true;
+        this._queue.length = 0;
         if (this._reconnectTimer) {
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
@@ -266,10 +273,7 @@ export class JsonRPCClient {
     notify(method, params) {
         const msg = { jsonrpc: '2.0', method };
         if (params != null) msg.params = params;
-        if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
-            throw new Error('WebSocket not connected');
-        }
-        this._ws.send(JSON.stringify(msg));
+        this._send(msg);
     }
 
     /**
@@ -301,14 +305,33 @@ export class JsonRPCClient {
         return ['bearer-token-carrier', encoded];
     }
 
+    _reconnectToNewUrl() {
+        if (this._reconnectTimer) {
+            clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+        }
+        if (this._ws) {
+            for (const [, pending] of this._pending) {
+                pending.reject(new Error('WebSocket URL changed'));
+            }
+            this._pending.clear();
+            for (const [, sub] of this._subscriptions) {
+                sub._push('error', new Error('WebSocket URL changed'));
+            }
+            this._subscriptions.clear();
+            this._ws.close();
+            this._ws = null;
+        }
+        this.connect();
+    }
+
     _send(message) {
         if (this._ws && this._ws.readyState === WebSocket.OPEN) {
             this._ws.send(JSON.stringify(message));
-        } else if (message.id !== undefined) {
-            const pending = this._pending.get(message.id);
-            if (pending) {
-                this._pending.delete(message.id);
-                pending.reject(new Error('WebSocket not connected'));
+        } else {
+            this._queue.push(message);
+            if (!this._ws && !this._manuallyDisconnected) {
+                this.connect();
             }
         }
     }
