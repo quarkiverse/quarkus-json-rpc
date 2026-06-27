@@ -480,7 +480,8 @@ public class JsonRPCProcessor {
             Map<String, String> scopeToPath) {
         StringBuilder js = new StringBuilder();
         js.append("import { JsonRPCClient } from '@quarkiverse/json-rpc';\n\n");
-        js.append("export const client = new JsonRPCClient({ path: '").append(escapeJsString(wsPath)).append("' });\n\n");
+        js.append("export const client = new JsonRPCClient({ path: '").append(escapeJsString(wsPath))
+                .append("', autoConnect: false });\n\n");
 
         // Create additional clients for custom paths
         Set<String> extraPaths = new TreeSet<>(scopeToPath.values());
@@ -489,7 +490,7 @@ public class JsonRPCProcessor {
             String varName = pathToClientVar(path);
             pathToClientVar.put(path, varName);
             js.append("const ").append(varName).append(" = new JsonRPCClient({ path: '")
-                    .append(escapeJsString(path)).append("' });\n");
+                    .append(escapeJsString(path)).append("', autoConnect: false });\n");
         }
         if (!extraPaths.isEmpty()) {
             js.append("\n");

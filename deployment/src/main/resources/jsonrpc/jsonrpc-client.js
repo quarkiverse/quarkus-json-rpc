@@ -26,6 +26,7 @@ export class JsonRPCClient {
     _pending = new Map();
     _subscriptions = new Map();
     _listeners = new Map();
+    _queue = [];
     _autoReconnect;
     _reconnectDelay;
     _maxReconnectDelay;
@@ -67,8 +68,15 @@ export class JsonRPCClient {
     set url(value) {
         const changed = this._url !== value;
         this._url = value;
-        if (changed && this._ws) {
-            this.disconnect();
+        if (changed && !this._manuallyDisconnected) {
+            if (this._reconnectTimer) {
+                clearTimeout(this._reconnectTimer);
+                this._reconnectTimer = null;
+            }
+            if (this._ws) {
+                this._ws.close();
+                this._ws = null;
+            }
             this.connect();
         }
     }
@@ -80,8 +88,15 @@ export class JsonRPCClient {
     set path(value) {
         const changed = this._path !== value;
         this._path = value;
-        if (changed && this._ws && !this._url) {
-            this.disconnect();
+        if (changed && !this._url && !this._manuallyDisconnected) {
+            if (this._reconnectTimer) {
+                clearTimeout(this._reconnectTimer);
+                this._reconnectTimer = null;
+            }
+            if (this._ws) {
+                this._ws.close();
+                this._ws = null;
+            }
             this.connect();
         }
     }
@@ -136,6 +151,9 @@ export class JsonRPCClient {
         ws.onopen = () => {
             this._connected = true;
             this._reconnectDelay = 1000;
+            while (this._queue.length > 0) {
+                ws.send(JSON.stringify(this._queue.shift()));
+            }
             if (this.onOpen) this.onOpen();
         };
 
@@ -183,6 +201,7 @@ export class JsonRPCClient {
 
     disconnect() {
         this._manuallyDisconnected = true;
+        this._queue.length = 0;
         if (this._reconnectTimer) {
             clearTimeout(this._reconnectTimer);
             this._reconnectTimer = null;
@@ -266,10 +285,7 @@ export class JsonRPCClient {
     notify(method, params) {
         const msg = { jsonrpc: '2.0', method };
         if (params != null) msg.params = params;
-        if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
-            throw new Error('WebSocket not connected');
-        }
-        this._ws.send(JSON.stringify(msg));
+        this._send(msg);
     }
 
     /**
@@ -304,11 +320,10 @@ export class JsonRPCClient {
     _send(message) {
         if (this._ws && this._ws.readyState === WebSocket.OPEN) {
             this._ws.send(JSON.stringify(message));
-        } else if (message.id !== undefined) {
-            const pending = this._pending.get(message.id);
-            if (pending) {
-                this._pending.delete(message.id);
-                pending.reject(new Error('WebSocket not connected'));
+        } else {
+            this._queue.push(message);
+            if (!this._ws && !this._manuallyDisconnected) {
+                this.connect();
             }
         }
     }

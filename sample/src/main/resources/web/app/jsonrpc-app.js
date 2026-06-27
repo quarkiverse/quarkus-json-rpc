@@ -214,6 +214,7 @@ class JsonRpcApp extends LitElement {
             this._connected = false;
             this._subscriptions = new Map();
         };
+        client.connect();
         this._connected = client.connected;
     }
 
