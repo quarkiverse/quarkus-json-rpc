@@ -69,15 +69,7 @@ export class JsonRPCClient {
         const changed = this._url !== value;
         this._url = value;
         if (changed && !this._manuallyDisconnected) {
-            if (this._reconnectTimer) {
-                clearTimeout(this._reconnectTimer);
-                this._reconnectTimer = null;
-            }
-            if (this._ws) {
-                this._ws.close();
-                this._ws = null;
-            }
-            this.connect();
+            this._reconnectToNewUrl();
         }
     }
 
@@ -89,15 +81,7 @@ export class JsonRPCClient {
         const changed = this._path !== value;
         this._path = value;
         if (changed && !this._url && !this._manuallyDisconnected) {
-            if (this._reconnectTimer) {
-                clearTimeout(this._reconnectTimer);
-                this._reconnectTimer = null;
-            }
-            if (this._ws) {
-                this._ws.close();
-                this._ws = null;
-            }
-            this.connect();
+            this._reconnectToNewUrl();
         }
     }
 
@@ -319,6 +303,26 @@ export class JsonRPCClient {
             'quarkus-http-upgrade#Authorization#' + token
         );
         return ['bearer-token-carrier', encoded];
+    }
+
+    _reconnectToNewUrl() {
+        if (this._reconnectTimer) {
+            clearTimeout(this._reconnectTimer);
+            this._reconnectTimer = null;
+        }
+        if (this._ws) {
+            for (const [, pending] of this._pending) {
+                pending.reject(new Error('WebSocket URL changed'));
+            }
+            this._pending.clear();
+            for (const [, sub] of this._subscriptions) {
+                sub._push('error', new Error('WebSocket URL changed'));
+            }
+            this._subscriptions.clear();
+            this._ws.close();
+            this._ws = null;
+        }
+        this.connect();
     }
 
     _send(message) {
