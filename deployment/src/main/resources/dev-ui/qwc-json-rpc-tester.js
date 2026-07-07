@@ -49,7 +49,7 @@ export class QwcJsonRpcTester extends LitElement {
             font-family: monospace;
             font-size: 0.9em;
         }
-        select, input, button {
+        select, input, button, textarea {
             padding: 0.4em 0.6em;
             border-radius: var(--lumo-border-radius-s);
             border: 1px solid var(--lumo-contrast-20pct);
@@ -60,6 +60,13 @@ export class QwcJsonRpcTester extends LitElement {
         }
         input {
             min-width: 250px;
+        }
+        textarea {
+            min-width: 350px;
+            min-height: 60px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85em;
+            resize: vertical;
         }
         button {
             cursor: pointer;
@@ -156,13 +163,22 @@ export class QwcJsonRpcTester extends LitElement {
             ${this._selectedMethod?.parameters?.length > 0 ?
                 this._selectedMethod.parameters.split(', ').map(p => {
                     const [name] = p.split(':').map(s => s.trim());
+                    const type = p.split(':')[1]?.trim() || '';
+                    const isComplex = this._isComplexType(type);
                     return html`
                         <div class="form-row">
-                            <label>${name} <small>(${p.split(':')[1]?.trim() || ''})</small>:</label>
-                            <input type="text"
-                                .value=${this._paramValues[name] || ''}
-                                @input=${e => this._onParamInput(name, e.target.value)}
-                                placeholder="${name}">
+                            <label>${name} <small>(${type})</small>:</label>
+                            ${isComplex ? html`
+                                <textarea
+                                    .value=${this._paramValues[name] || ''}
+                                    @input=${e => this._onParamInput(name, e.target.value)}
+                                    placeholder='{"field": "value"}'></textarea>
+                            ` : html`
+                                <input type="text"
+                                    .value=${this._paramValues[name] || ''}
+                                    @input=${e => this._onParamInput(name, e.target.value)}
+                                    placeholder="${name}">
+                            `}
                         </div>
                     `;
                 })
@@ -210,6 +226,28 @@ export class QwcJsonRpcTester extends LitElement {
         this._paramValues = { ...this._paramValues, [name]: value };
     }
 
+    _isComplexType(type) {
+        const simple = ['String', 'int', 'long', 'double', 'float', 'boolean',
+            'short', 'byte', 'char', 'Integer', 'Long', 'Double', 'Float',
+            'Boolean', 'Short', 'Byte', 'Character', 'BigDecimal', 'BigInteger',
+            'List', 'Set', 'Map', 'Optional'];
+        return type && !simple.includes(type);
+    }
+
+    _parseLenientJson(str) {
+        try {
+            return JSON.parse(str);
+        } catch (e) {
+            // Try fixing unquoted keys: {name: "val"} -> {"name": "val"}
+            try {
+                const fixed = str.replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":');
+                return JSON.parse(fixed);
+            } catch (e2) {
+                return str;
+            }
+        }
+    }
+
     _invoke() {
         this._result = null;
         this._streamItems = [];
@@ -219,11 +257,16 @@ export class QwcJsonRpcTester extends LitElement {
         if (this._selectedMethod?.parameters) {
             this._selectedMethod.parameters.split(', ').forEach(p => {
                 const name = p.split(':')[0].trim();
+                const type = p.split(':')[1]?.trim() || '';
                 let val = this._paramValues[name] || '';
-                try {
-                    val = JSON.parse(val);
-                } catch (e) {
-                    // keep as string
+                if (this._isComplexType(type)) {
+                    val = this._parseLenientJson(val);
+                } else {
+                    try {
+                        val = JSON.parse(val);
+                    } catch (e) {
+                        // keep as string
+                    }
                 }
                 params[name] = val;
             });
