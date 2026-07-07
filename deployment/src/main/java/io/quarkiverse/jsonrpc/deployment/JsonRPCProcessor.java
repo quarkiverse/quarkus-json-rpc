@@ -65,6 +65,7 @@ import io.quarkus.deployment.util.IoUtil;
 import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
 import io.quarkus.devui.spi.buildtime.BuildTimeActionBuildItem;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
+import io.quarkus.devui.spi.page.FooterPageBuildItem;
 import io.quarkus.devui.spi.page.Page;
 import io.quarkus.smallrye.health.deployment.spi.HealthBuildItem;
 import io.quarkus.vertx.http.deployment.FilterBuildItem;
@@ -749,6 +750,22 @@ public class JsonRPCProcessor {
     @BuildStep(onlyIf = IsLocalDevelopment.class)
     JsonRPCProvidersBuildItem createDevUIJsonRPCService() {
         return new JsonRPCProvidersBuildItem(JsonRPCDevUIService.class);
+    }
+
+    @BuildStep(onlyIf = IsLocalDevelopment.class)
+    @Record(ExecutionTime.RUNTIME_INIT)
+    void enableMessageLog(JsonRPCRecorder recorder, BeanContainerBuildItem beanContainer) {
+        recorder.enableMessageLog(beanContainer.getValue());
+    }
+
+    @BuildStep(onlyIf = IsLocalDevelopment.class)
+    FooterPageBuildItem createFooterLog() {
+        FooterPageBuildItem footer = new FooterPageBuildItem();
+        footer.addPage(Page.webComponentPageBuilder()
+                .title("JSON-RPC")
+                .icon("font-awesome-solid:exchange-alt")
+                .componentLink("qwc-json-rpc-log.js"));
+        return footer;
     }
 
     @BuildStep(onlyIf = IsLocalDevelopment.class)

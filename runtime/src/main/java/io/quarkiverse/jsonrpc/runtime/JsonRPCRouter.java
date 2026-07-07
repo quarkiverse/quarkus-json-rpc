@@ -3,6 +3,7 @@ package io.quarkiverse.jsonrpc.runtime;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,6 +42,7 @@ import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.context.SmallRyeThreadContext;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
 import io.smallrye.mutiny.subscription.Cancellable;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.core.AsyncResult;
@@ -78,6 +80,8 @@ public class JsonRPCRouter {
 
     private final Duration methodTimeout;
 
+    private volatile BroadcastProcessor<io.vertx.core.json.JsonObject> messageLogProcessor;
+
     public JsonRPCRouter(JsonRPCCodec codec, JsonRPCSessions sessions,
             Map<JsonRPCMethodName, JsonRPCMethod> methodsMap,
             Map<String, String> scopeToPath, String defaultPath,
@@ -86,6 +90,41 @@ public class JsonRPCRouter {
         this.sessions = sessions;
         this.methodTimeout = methodTimeout;
         populateJsonRPCMethods(methodsMap, scopeToPath, defaultPath);
+    }
+
+    public void enableMessageLog() {
+        this.messageLogProcessor = BroadcastProcessor.create();
+        this.codec.setMessageLogListener((socket, json) -> {
+            BroadcastProcessor<io.vertx.core.json.JsonObject> p = this.messageLogProcessor;
+            if (p != null) {
+                String sessionId = sessions.getSessionId(socket);
+                p.onNext(new io.vertx.core.json.JsonObject()
+                        .put("direction", "outgoing")
+                        .put("sessionId", sessionId != null ? sessionId : "unknown")
+                        .put("timestamp", Instant.now().toString())
+                        .put("message", json));
+            }
+        });
+    }
+
+    public Multi<io.vertx.core.json.JsonObject> streamMessageLog() {
+        BroadcastProcessor<io.vertx.core.json.JsonObject> p = this.messageLogProcessor;
+        if (p == null) {
+            return Multi.createFrom().empty();
+        }
+        return p;
+    }
+
+    private void logIncoming(ServerWebSocket socket, String rawJson) {
+        BroadcastProcessor<io.vertx.core.json.JsonObject> p = this.messageLogProcessor;
+        if (p != null) {
+            String sessionId = sessions.getSessionId(socket);
+            p.onNext(new io.vertx.core.json.JsonObject()
+                    .put("direction", "incoming")
+                    .put("sessionId", sessionId != null ? sessionId : "unknown")
+                    .put("timestamp", Instant.now().toString())
+                    .put("message", rawJson));
+        }
     }
 
     private static JsonRPCMetricsHandler metrics() {
@@ -261,6 +300,7 @@ public class JsonRPCRouter {
         }
         fireEvent(new JsonRPCConnected(sessionId));
         socket.textMessageHandler((e) -> {
+            logIncoming(socket, e);
             try {
                 JsonNode jsonNode;
                 try {

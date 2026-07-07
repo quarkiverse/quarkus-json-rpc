@@ -89,4 +89,8 @@ public class JsonRPCRecorder {
     public Handler<RoutingContext> openRpcHandler(String openrpcDocument) {
         return new OpenRPCHandler(openrpcDocument);
     }
+
+    public void enableMessageLog(BeanContainer beanContainer) {
+        beanContainer.beanInstance(JsonRPCRouter.class).enableMessageLog();
+    }
 }

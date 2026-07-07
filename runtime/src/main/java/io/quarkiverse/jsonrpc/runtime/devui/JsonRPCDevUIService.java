@@ -11,6 +11,7 @@ import io.quarkiverse.jsonrpc.runtime.ReflectionInfo;
 import io.quarkus.runtime.annotations.DevMCPEnableByDefault;
 import io.quarkus.runtime.annotations.JsonRpcDescription;
 import io.smallrye.common.annotation.NonBlocking;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.subscription.Cancellable;
 import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonArray;
@@ -91,6 +92,10 @@ public class JsonRPCDevUIService {
             }
         }
         return result;
+    }
+
+    public Multi<JsonObject> streamLog() {
+        return router.streamMessageLog();
     }
 
     private String getReturnTypeDescription(ReflectionInfo info) {
