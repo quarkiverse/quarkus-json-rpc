@@ -3,6 +3,7 @@ package io.quarkiverse.jsonrpc.runtime.model;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 
 import org.jboss.logging.Logger;
 
@@ -16,10 +17,15 @@ import io.vertx.core.http.ServerWebSocket;
 public class JsonRPCCodec {
     private static final Logger LOG = Logger.getLogger(JsonRPCCodec.class);
     private final ObjectMapper objectMapper;
+    private volatile BiConsumer<ServerWebSocket, String> messageLogListener;
 
     public JsonRPCCodec(ObjectMapper originalObjectMapper) {
         this.objectMapper = originalObjectMapper.copy(); // we should never change settings of the original ObjectMapper as they could have global impact
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    }
+
+    public void setMessageLogListener(BiConsumer<ServerWebSocket, String> listener) {
+        this.messageLogListener = listener;
     }
 
     public JsonNode parseJson(String json) throws JsonProcessingException {
@@ -32,7 +38,9 @@ public class JsonRPCCodec {
 
     public void writeResponse(ServerWebSocket socket, JsonRPCResponse<?> response) {
         try {
-            socket.writeTextMessage(objectMapper.writeValueAsString(response));
+            String json = objectMapper.writeValueAsString(response);
+            socket.writeTextMessage(json);
+            logOutgoing(socket, json);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
@@ -40,7 +48,9 @@ public class JsonRPCCodec {
 
     public void writeBatchResponse(ServerWebSocket socket, List<JsonRPCResponse<?>> responses) {
         try {
-            socket.writeTextMessage(objectMapper.writeValueAsString(responses));
+            String json = objectMapper.writeValueAsString(responses);
+            socket.writeTextMessage(json);
+            logOutgoing(socket, json);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
@@ -80,11 +90,20 @@ public class JsonRPCCodec {
             return;
         }
         try {
-            socket.writeTextMessage(objectMapper.writeValueAsString(notification));
+            String json = objectMapper.writeValueAsString(notification);
+            socket.writeTextMessage(json);
+            logOutgoing(socket, json);
         } catch (JsonProcessingException ex) {
             LOG.errorf(ex, "Failed to serialize JSON-RPC notification: method=%s", notification.method);
             throw new RuntimeException(
                     "Failed to serialize JSON-RPC notification for method '" + notification.method + "'", ex);
+        }
+    }
+
+    private void logOutgoing(ServerWebSocket socket, String json) {
+        BiConsumer<ServerWebSocket, String> listener = this.messageLogListener;
+        if (listener != null) {
+            listener.accept(socket, json);
         }
     }
 }

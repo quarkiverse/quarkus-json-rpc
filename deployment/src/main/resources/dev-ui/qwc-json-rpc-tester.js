@@ -6,6 +6,8 @@ import { JsonRpc } from 'jsonrpc';
 export class QwcJsonRpcTester extends LitElement {
 
     static _nextRequestId = 0;
+    static _connections = new Map();
+
     jsonRpc = new JsonRpc(this);
 
     static styles = css`
@@ -104,6 +106,8 @@ export class QwcJsonRpcTester extends LitElement {
         this._result = null;
         this._streaming = false;
         this._streamItems = [];
+        this._subscriptionId = null;
+        this._subscriptionPath = null;
     }
 
     connectedCallback() {
@@ -216,7 +220,6 @@ export class QwcJsonRpcTester extends LitElement {
             this._selectedMethod.parameters.split(', ').forEach(p => {
                 const name = p.split(':')[0].trim();
                 let val = this._paramValues[name] || '';
-                // Try to parse as JSON for non-string values
                 try {
                     val = JSON.parse(val);
                 } catch (e) {
@@ -226,25 +229,94 @@ export class QwcJsonRpcTester extends LitElement {
             });
         }
 
-        // Use the Dev UI jsonrpc to call our service's listMethods,
-        // but the actual invocation goes through the extension's own WS.
-        // For the tester, we connect directly via WebSocket.
         this._invokeViaWebSocket(params);
     }
 
-    _invokeViaWebSocket(params) {
+    static _getConnection(path) {
         const loc = window.location;
         const wsProtocol = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-        const methodPath = this._selectedMethod?.path || endpointPath;
-        const wsUrl = `${wsProtocol}//${loc.host}${methodPath}`;
+        const wsUrl = `${wsProtocol}//${loc.host}${path}`;
+
+        let conn = QwcJsonRpcTester._connections.get(path);
+        if (conn && conn.ws.readyState === WebSocket.OPEN) {
+            return Promise.resolve(conn);
+        }
+
+        if (conn && conn.ws.readyState === WebSocket.CONNECTING) {
+            return conn.ready;
+        }
+
+        // Clean up old connection if it exists
+        if (conn) {
+            conn.ws.close();
+        }
 
         const ws = new WebSocket(wsUrl);
-        // Strip params suffix from the key — the server appends param names
-        // from the request's named params to build the lookup key
+        conn = {
+            ws,
+            pending: new Map(),
+            subscriptions: new Map(),
+            ready: null,
+        };
+
+        conn.ready = new Promise((resolve, reject) => {
+            ws.onopen = () => resolve(conn);
+            ws.onerror = () => reject(new Error('WebSocket connection error'));
+        });
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            // Subscription notification
+            if (data.method === 'subscription' && data.params) {
+                const subId = data.params.subscription;
+                const sub = conn.subscriptions.get(subId);
+                if (sub) {
+                    if (data.params.result !== undefined) {
+                        sub.onItem(data.params.result);
+                    }
+                    if (data.params.complete) {
+                        sub.onComplete();
+                        conn.subscriptions.delete(subId);
+                    }
+                    if (data.params.error) {
+                        sub.onError(data.params.error);
+                        conn.subscriptions.delete(subId);
+                    }
+                }
+                return;
+            }
+
+            // Regular response
+            if (data.id !== undefined) {
+                const handler = conn.pending.get(data.id);
+                if (handler) {
+                    conn.pending.delete(data.id);
+                    handler(data);
+                }
+            }
+        };
+
+        ws.onclose = () => {
+            QwcJsonRpcTester._connections.delete(path);
+            conn.pending.forEach(handler => handler({
+                error: { code: -1, message: 'WebSocket closed' }
+            }));
+            conn.pending.clear();
+            conn.subscriptions.forEach(sub => sub.onError('WebSocket closed'));
+            conn.subscriptions.clear();
+        };
+
+        QwcJsonRpcTester._connections.set(path, conn);
+        return conn.ready;
+    }
+
+    _invokeViaWebSocket(params) {
+        const methodPath = this._selectedMethod?.path || endpointPath;
         const method = this._selectedMethod.key.replace(/\(.*\)$/, '');
         const requestId = ++QwcJsonRpcTester._nextRequestId;
 
-        ws.onopen = () => {
+        QwcJsonRpcTester._getConnection(methodPath).then(conn => {
             const request = {
                 jsonrpc: '2.0',
                 id: requestId,
@@ -253,70 +325,65 @@ export class QwcJsonRpcTester extends LitElement {
             if (Object.keys(params).length > 0) {
                 request.params = params;
             }
-            ws.send(JSON.stringify(request));
-        };
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.id === requestId && data.result !== undefined) {
-                // Check if the result is a subscription ID (UUID pattern)
-                if (typeof data.result === 'string' &&
-                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.result)) {
-                    this._streaming = true;
-                    this._subscriptionId = data.result;
-                    this._ws = ws;
-                    this._result = `Subscription started: ${data.result}`;
-                    return; // Keep connection open for streaming
+            conn.pending.set(requestId, (data) => {
+                if (data.result !== undefined) {
+                    if (typeof data.result === 'string' &&
+                        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.result)) {
+                        this._streaming = true;
+                        this._subscriptionId = data.result;
+                        this._subscriptionPath = methodPath;
+                        this._result = `Subscription started: ${data.result}`;
+                        conn.subscriptions.set(data.result, {
+                            onItem: (item) => {
+                                this._streamItems = [...this._streamItems, item];
+                            },
+                            onComplete: () => {
+                                this._streaming = false;
+                                this._result = 'Stream completed';
+                                conn.subscriptions.delete(this._subscriptionId);
+                                this._subscriptionId = null;
+                                this._subscriptionPath = null;
+                            },
+                            onError: (err) => {
+                                this._streaming = false;
+                                this._result = `Stream error: ${err}`;
+                                conn.subscriptions.delete(this._subscriptionId);
+                                this._subscriptionId = null;
+                                this._subscriptionPath = null;
+                            },
+                        });
+                        return;
+                    }
+                    this._result = data.result;
+                } else if (data.error) {
+                    this._result = `Error: ${data.error.message} (code: ${data.error.code})`;
                 }
-                this._result = data.result;
-                ws.close();
-            } else if (data.id === requestId && data.error) {
-                this._result = `Error: ${data.error.message} (code: ${data.error.code})`;
-                ws.close();
-            } else if (data.method === 'subscription' && data.params) {
-                // Streaming item
-                if (data.params.subscription === this._subscriptionId) {
-                    if (data.params.result !== undefined) {
-                        this._streamItems = [...this._streamItems, data.params.result];
-                    }
-                    if (data.params.complete) {
-                        this._streaming = false;
-                        this._result = 'Stream completed';
-                        ws.close();
-                    }
-                    if (data.params.error) {
-                        this._streaming = false;
-                        this._result = `Stream error: ${data.params.error}`;
-                        ws.close();
-                    }
-                }
-            }
-        };
+            });
 
-        ws.onerror = () => {
-            this._result = 'WebSocket connection error';
-            ws.close();
-        };
+            conn.ws.send(JSON.stringify(request));
+        }).catch(err => {
+            this._result = `Connection error: ${err.message}`;
+        });
     }
 
     _cancelStream() {
-        if (this._ws && this._subscriptionId) {
-            const request = {
-                jsonrpc: '2.0',
-                id: ++QwcJsonRpcTester._nextRequestId,
-                method: 'unsubscribe',
-                params: [this._subscriptionId],
-            };
-            try {
-                this._ws.send(JSON.stringify(request));
-                this._ws.close();
-            } catch (e) {
-                // ignore if already closed
+        if (this._subscriptionId && this._subscriptionPath) {
+            const conn = QwcJsonRpcTester._connections.get(this._subscriptionPath);
+            if (conn && conn.ws.readyState === WebSocket.OPEN) {
+                const request = {
+                    jsonrpc: '2.0',
+                    id: ++QwcJsonRpcTester._nextRequestId,
+                    method: 'unsubscribe',
+                    params: [this._subscriptionId],
+                };
+                conn.ws.send(JSON.stringify(request));
+                conn.subscriptions.delete(this._subscriptionId);
             }
         }
         this._streaming = false;
         this._subscriptionId = null;
-        this._ws = null;
+        this._subscriptionPath = null;
     }
 }
 
