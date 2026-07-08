@@ -43,15 +43,21 @@ public class JsonRPCDevUIService {
             method.put("methodName", info.method.getName());
             method.put("path", methodPaths.getOrDefault(key, ""));
 
+            JsonArray params = new JsonArray();
             if (info.params != null && !info.params.isEmpty()) {
                 StringJoiner sj = new StringJoiner(", ");
                 for (Map.Entry<String, Class> param : info.params.entrySet()) {
                     sj.add(param.getKey() + ": " + param.getValue().getSimpleName());
+                    params.add(new JsonObject()
+                            .put("name", param.getKey())
+                            .put("type", param.getValue().getSimpleName()));
                 }
                 method.put("parameters", sj.toString());
             } else {
                 method.put("parameters", "");
             }
+            method.put("params", params);
+            method.put("returnType", getReturnTypeDescription(info));
             method.put("executionMode", getExecutionMode(info));
             method.put("security", resolveSecurityConstraint(info));
 
@@ -101,6 +107,35 @@ public class JsonRPCDevUIService {
 
     public Multi<JsonObject> streamLog() {
         return router.streamMessageLog();
+    }
+
+    private String getReturnTypeDescription(ReflectionInfo info) {
+        Class<?> returnType = info.method.getReturnType();
+        java.lang.reflect.Type genericReturn = info.method.getGenericReturnType();
+
+        if (info.isReturningMulti()) {
+            return "Multi<" + getGenericArg(genericReturn) + ">";
+        } else if (info.isReturningUni()) {
+            return "Uni<" + getGenericArg(genericReturn) + ">";
+        } else if (info.isReturningCompletionStage()) {
+            return "CompletionStage<" + getGenericArg(genericReturn) + ">";
+        } else if (info.isReturningFlowPublisher()) {
+            return "Flow.Publisher<" + getGenericArg(genericReturn) + ">";
+        }
+        return returnType.getSimpleName();
+    }
+
+    private String getGenericArg(java.lang.reflect.Type type) {
+        if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+            if (args.length > 0) {
+                if (args[0] instanceof Class<?> c) {
+                    return c.getSimpleName();
+                }
+                return args[0].getTypeName();
+            }
+        }
+        return "?";
     }
 
     private String resolveSecurityConstraint(ReflectionInfo info) {

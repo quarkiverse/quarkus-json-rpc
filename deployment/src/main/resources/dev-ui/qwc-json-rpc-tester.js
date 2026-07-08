@@ -121,7 +121,19 @@ export class QwcJsonRpcTester extends QwcHotReloadElement {
 
     connectedCallback() {
         super.connectedCallback();
-        this._loadMethods();
+        const preselected = sessionStorage.getItem('jsonrpc-test-method');
+        if (preselected) {
+            sessionStorage.removeItem('jsonrpc-test-method');
+        }
+        this._loadMethods(preselected || undefined);
+    }
+
+    willUpdate() {
+        const preselected = sessionStorage.getItem('jsonrpc-test-method');
+        if (preselected) {
+            sessionStorage.removeItem('jsonrpc-test-method');
+            this._loadMethods(preselected);
+        }
     }
 
     _loadMethods(preselectedKey) {
@@ -137,6 +149,8 @@ export class QwcJsonRpcTester extends QwcHotReloadElement {
             if (!this._selectedMethod || !this._methods.find(m => m.key === this._selectedMethod.key)) {
                 this._selectedMethod = this._methods.length > 0 ? this._methods[0] : null;
             }
+        }).catch(e => {
+            console.warn('Failed to load JSON-RPC methods', e);
         });
     }
 
@@ -146,11 +160,6 @@ export class QwcJsonRpcTester extends QwcHotReloadElement {
     }
 
     render() {
-        const preselected = sessionStorage.getItem('jsonrpc-test-method');
-        if (preselected) {
-            sessionStorage.removeItem('jsonrpc-test-method');
-            this._loadMethods(preselected);
-        }
         return html`
             <span class="endpoint-info">Endpoint: <code>${this._selectedMethod?.path || endpointPath}</code></span>
 

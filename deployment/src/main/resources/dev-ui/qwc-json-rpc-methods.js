@@ -84,6 +84,8 @@ export class QwcJsonRpcMethods extends QwcHotReloadElement {
     hotReload() {
         this.jsonRpc.listMethods().then(r => {
             this._methods = r.result || [];
+        }).catch(e => {
+            console.warn('Failed to reload JSON-RPC methods', e);
         });
     }
 
