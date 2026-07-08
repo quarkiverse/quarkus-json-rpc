@@ -281,6 +281,10 @@ public class JsonRPCRouter {
         return Collections.unmodifiableMap(jsonRpcToJava);
     }
 
+    public Map<String, String> getMethodPaths() {
+        return Collections.unmodifiableMap(methodKeyToAllowedPath);
+    }
+
     public Map<ServerWebSocket, Map<String, Cancellable>> getSocketSubscriptions() {
         return Collections.unmodifiableMap(socketSubscriptions);
     }

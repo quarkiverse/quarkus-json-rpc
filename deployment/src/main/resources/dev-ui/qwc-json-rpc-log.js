@@ -1,8 +1,8 @@
-import { LitElement, html, css } from 'lit';
+import { QwcHotReloadElement, html, css } from 'qwc-hot-reload-element';
 import { JsonRpc } from 'jsonrpc';
 import { LogController } from 'log-controller';
 
-export class QwcJsonRpcLog extends LitElement {
+export class QwcJsonRpcLog extends QwcHotReloadElement {
 
     jsonRpc = new JsonRpc(this);
     logControl = new LogController(this);
@@ -90,6 +90,12 @@ export class QwcJsonRpcLog extends LitElement {
     disconnectedCallback() {
         super.disconnectedCallback();
         this._unsubscribe();
+    }
+
+    hotReload() {
+        this._unsubscribe();
+        this._messages = [];
+        this._subscribe();
     }
 
     _subscribe() {

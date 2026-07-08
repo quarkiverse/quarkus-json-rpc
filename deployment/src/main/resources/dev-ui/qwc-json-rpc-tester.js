@@ -1,9 +1,9 @@
-import { LitElement, html, css } from 'lit';
+import { QwcHotReloadElement, html, css } from 'qwc-hot-reload-element';
 import { methods } from 'build-time-data';
 import { endpointPath } from 'build-time-data';
 import { JsonRpc } from 'jsonrpc';
 
-export class QwcJsonRpcTester extends LitElement {
+export class QwcJsonRpcTester extends QwcHotReloadElement {
 
     static _nextRequestId = 0;
     static _connections = new Map();
@@ -99,6 +99,7 @@ export class QwcJsonRpcTester extends LitElement {
     `;
 
     static properties = {
+        _methods: { state: true },
         _selectedMethod: { state: true },
         _paramValues: { state: true },
         _result: { state: true },
@@ -108,6 +109,7 @@ export class QwcJsonRpcTester extends LitElement {
 
     constructor() {
         super();
+        this._methods = methods;
         this._selectedMethod = null;
         this._paramValues = {};
         this._result = null;
@@ -122,15 +124,34 @@ export class QwcJsonRpcTester extends LitElement {
         const preselected = sessionStorage.getItem('jsonrpc-test-method');
         if (preselected) {
             sessionStorage.removeItem('jsonrpc-test-method');
-            const found = methods.find(m => m.key === preselected);
-            if (found) {
-                this._selectedMethod = found;
-                return;
+        }
+        this._loadMethods(preselected || undefined);
+    }
+
+    willUpdate() {
+        const preselected = sessionStorage.getItem('jsonrpc-test-method');
+        if (preselected) {
+            sessionStorage.removeItem('jsonrpc-test-method');
+            this._loadMethods(preselected);
+        }
+    }
+
+    _loadMethods(preselectedKey) {
+        this.jsonRpc.listMethods().then(r => {
+            this._methods = r.result || [];
+            if (preselectedKey) {
+                const found = this._methods.find(m => m.key === preselectedKey);
+                if (found) {
+                    this._selectedMethod = found;
+                    return;
+                }
             }
-        }
-        if (methods && methods.length > 0) {
-            this._selectedMethod = methods[0];
-        }
+            if (!this._selectedMethod || !this._methods.find(m => m.key === this._selectedMethod.key)) {
+                this._selectedMethod = this._methods.length > 0 ? this._methods[0] : null;
+            }
+        }).catch(e => {
+            console.warn('Failed to load JSON-RPC methods', e);
+        });
     }
 
     disconnectedCallback() {
@@ -145,7 +166,7 @@ export class QwcJsonRpcTester extends LitElement {
             <div class="form-row">
                 <label>Method:</label>
                 <select @change=${this._onMethodSelect}>
-                    ${methods.map(m => html`
+                    ${this._methods.map(m => html`
                         <option value=${m.key} ?selected=${this._selectedMethod?.key === m.key}>
                             ${m.key}
                         </option>
@@ -213,9 +234,19 @@ export class QwcJsonRpcTester extends LitElement {
         `;
     }
 
+    hotReload() {
+        this._cancelStream();
+        QwcJsonRpcTester._connections.forEach(conn => conn.ws.close());
+        QwcJsonRpcTester._connections.clear();
+        this._paramValues = {};
+        this._result = null;
+        this._streamItems = [];
+        this._loadMethods();
+    }
+
     _onMethodSelect(e) {
         const key = e.target.value;
-        this._selectedMethod = methods.find(m => m.key === key);
+        this._selectedMethod = this._methods.find(m => m.key === key);
         this._paramValues = {};
         this._result = null;
         this._streamItems = [];

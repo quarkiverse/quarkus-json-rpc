@@ -1,7 +1,10 @@
 package io.quarkiverse.jsonrpc.runtime.devui;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 import jakarta.inject.Inject;
 
@@ -30,25 +33,33 @@ public class JsonRPCDevUIService {
     @DevMCPEnableByDefault
     public JsonArray listMethods() {
         JsonArray methods = new JsonArray();
+        Map<String, String> methodPaths = router.getMethodPaths();
         for (Map.Entry<String, ReflectionInfo> entry : router.getRegisteredMethods().entrySet()) {
             String key = entry.getKey();
             ReflectionInfo info = entry.getValue();
             JsonObject method = new JsonObject();
             method.put("key", key);
-            method.put("className", info.bean.getName());
+            method.put("className", info.bean.getSimpleName());
             method.put("methodName", info.method.getName());
-            method.put("returnType", getReturnTypeDescription(info));
+            method.put("path", methodPaths.getOrDefault(key, ""));
 
             JsonArray params = new JsonArray();
-            if (info.params != null) {
+            if (info.params != null && !info.params.isEmpty()) {
+                StringJoiner sj = new StringJoiner(", ");
                 for (Map.Entry<String, Class> param : info.params.entrySet()) {
+                    sj.add(param.getKey() + ": " + param.getValue().getSimpleName());
                     params.add(new JsonObject()
                             .put("name", param.getKey())
                             .put("type", param.getValue().getSimpleName()));
                 }
+                method.put("parameters", sj.toString());
+            } else {
+                method.put("parameters", "");
             }
-            method.put("parameters", params);
+            method.put("params", params);
+            method.put("returnType", getReturnTypeDescription(info));
             method.put("executionMode", getExecutionMode(info));
+            method.put("security", resolveSecurityConstraint(info));
 
             methods.add(method);
         }
@@ -125,6 +136,44 @@ public class JsonRPCDevUIService {
             }
         }
         return "?";
+    }
+
+    private String resolveSecurityConstraint(ReflectionInfo info) {
+        Method method = info.method;
+
+        String label = getSecurityLabel(method.getAnnotations());
+        if (label != null) {
+            return label;
+        }
+
+        label = getSecurityLabel(info.bean.getAnnotations());
+        if (label != null) {
+            return label;
+        }
+
+        return "";
+    }
+
+    private String getSecurityLabel(Annotation[] annotations) {
+        for (Annotation ann : annotations) {
+            String name = ann.annotationType().getSimpleName();
+            switch (name) {
+                case "RolesAllowed":
+                    try {
+                        String[] roles = (String[]) ann.annotationType().getMethod("value").invoke(ann);
+                        return "@RolesAllowed(" + String.join(", ", roles) + ")";
+                    } catch (Exception e) {
+                        return "@RolesAllowed";
+                    }
+                case "PermitAll":
+                    return "@PermitAll";
+                case "DenyAll":
+                    return "@DenyAll";
+                case "Authenticated":
+                    return "@Authenticated";
+            }
+        }
+        return null;
     }
 
     private String getExecutionMode(ReflectionInfo info) {
