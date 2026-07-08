@@ -1,7 +1,7 @@
-import { LitElement, html, css } from 'lit';
+import { QwcHotReloadElement, html, css } from 'qwc-hot-reload-element';
 import { JsonRpc } from 'jsonrpc';
 
-export class QwcJsonRpcSessions extends LitElement {
+export class QwcJsonRpcSessions extends QwcHotReloadElement {
 
     jsonRpc = new JsonRpc(this);
 
@@ -132,6 +132,10 @@ export class QwcJsonRpcSessions extends LitElement {
                 <div class="empty-state">No active subscriptions</div>
             `}
         `;
+    }
+
+    hotReload() {
+        this._refresh();
     }
 
     _refresh() {

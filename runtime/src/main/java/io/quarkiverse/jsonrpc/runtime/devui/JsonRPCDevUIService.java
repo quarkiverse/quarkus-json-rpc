@@ -1,7 +1,10 @@
 package io.quarkiverse.jsonrpc.runtime.devui;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 import jakarta.inject.Inject;
 
@@ -30,25 +33,27 @@ public class JsonRPCDevUIService {
     @DevMCPEnableByDefault
     public JsonArray listMethods() {
         JsonArray methods = new JsonArray();
+        Map<String, String> methodPaths = router.getMethodPaths();
         for (Map.Entry<String, ReflectionInfo> entry : router.getRegisteredMethods().entrySet()) {
             String key = entry.getKey();
             ReflectionInfo info = entry.getValue();
             JsonObject method = new JsonObject();
             method.put("key", key);
-            method.put("className", info.bean.getName());
+            method.put("className", info.bean.getSimpleName());
             method.put("methodName", info.method.getName());
-            method.put("returnType", getReturnTypeDescription(info));
+            method.put("path", methodPaths.getOrDefault(key, ""));
 
-            JsonArray params = new JsonArray();
-            if (info.params != null) {
+            if (info.params != null && !info.params.isEmpty()) {
+                StringJoiner sj = new StringJoiner(", ");
                 for (Map.Entry<String, Class> param : info.params.entrySet()) {
-                    params.add(new JsonObject()
-                            .put("name", param.getKey())
-                            .put("type", param.getValue().getSimpleName()));
+                    sj.add(param.getKey() + ": " + param.getValue().getSimpleName());
                 }
+                method.put("parameters", sj.toString());
+            } else {
+                method.put("parameters", "");
             }
-            method.put("parameters", params);
             method.put("executionMode", getExecutionMode(info));
+            method.put("security", resolveSecurityConstraint(info));
 
             methods.add(method);
         }
@@ -98,33 +103,42 @@ public class JsonRPCDevUIService {
         return router.streamMessageLog();
     }
 
-    private String getReturnTypeDescription(ReflectionInfo info) {
-        Class<?> returnType = info.method.getReturnType();
-        java.lang.reflect.Type genericReturn = info.method.getGenericReturnType();
+    private String resolveSecurityConstraint(ReflectionInfo info) {
+        Method method = info.method;
 
-        if (info.isReturningMulti()) {
-            return "Multi<" + getGenericArg(genericReturn) + ">";
-        } else if (info.isReturningUni()) {
-            return "Uni<" + getGenericArg(genericReturn) + ">";
-        } else if (info.isReturningCompletionStage()) {
-            return "CompletionStage<" + getGenericArg(genericReturn) + ">";
-        } else if (info.isReturningFlowPublisher()) {
-            return "Flow.Publisher<" + getGenericArg(genericReturn) + ">";
+        String label = getSecurityLabel(method.getAnnotations());
+        if (label != null) {
+            return label;
         }
-        return returnType.getSimpleName();
+
+        label = getSecurityLabel(info.bean.getAnnotations());
+        if (label != null) {
+            return label;
+        }
+
+        return "";
     }
 
-    private String getGenericArg(java.lang.reflect.Type type) {
-        if (type instanceof java.lang.reflect.ParameterizedType pt) {
-            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
-            if (args.length > 0) {
-                if (args[0] instanceof Class<?> c) {
-                    return c.getSimpleName();
-                }
-                return args[0].getTypeName();
+    private String getSecurityLabel(Annotation[] annotations) {
+        for (Annotation ann : annotations) {
+            String name = ann.annotationType().getSimpleName();
+            switch (name) {
+                case "RolesAllowed":
+                    try {
+                        String[] roles = (String[]) ann.annotationType().getMethod("value").invoke(ann);
+                        return "@RolesAllowed(" + String.join(", ", roles) + ")";
+                    } catch (Exception e) {
+                        return "@RolesAllowed";
+                    }
+                case "PermitAll":
+                    return "@PermitAll";
+                case "DenyAll":
+                    return "@DenyAll";
+                case "Authenticated":
+                    return "@Authenticated";
             }
         }
-        return "?";
+        return null;
     }
 
     private String getExecutionMode(ReflectionInfo info) {
