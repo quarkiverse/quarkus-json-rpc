@@ -14,8 +14,10 @@
     <name>Quarkus Json Rpc - Parent</name>
 
     <modules>
-        <module>deployment</module>
         <module>runtime</module>
+        <module>deployment</module>
+        <module>websocket</module>
+        <module>domain-socket</module>
         <module>sample</module>
         <module>rag</module>
     </modules>

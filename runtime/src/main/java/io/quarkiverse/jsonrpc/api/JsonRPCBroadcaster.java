@@ -6,10 +6,10 @@ import java.util.Set;
 
 import org.jboss.logging.Logger;
 
+import io.quarkiverse.jsonrpc.runtime.JsonRPCConnection;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCSessions;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCNotification;
-import io.vertx.core.http.ServerWebSocket;
 
 /**
  * Injectable service for pushing JSON-RPC 2.0 notifications to connected WebSocket clients.
@@ -52,8 +52,8 @@ public class JsonRPCBroadcaster {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("result", data);
         JsonRPCNotification notification = new JsonRPCNotification(method, params);
-        for (ServerWebSocket socket : sessions.getAllSockets()) {
-            codec.writeNotification(socket, notification);
+        for (JsonRPCConnection connection : sessions.getAllConnections()) {
+            codec.writeNotification(connection, notification);
         }
     }
 
@@ -66,14 +66,14 @@ public class JsonRPCBroadcaster {
      * @return {@code true} if the session was found and the message was sent, {@code false} otherwise
      */
     public boolean send(String sessionId, String method, Object data) {
-        ServerWebSocket socket = sessions.getSocket(sessionId);
-        if (socket == null) {
+        JsonRPCConnection connection = sessions.getConnection(sessionId);
+        if (connection == null) {
             LOG.debugf("Cannot send to session %s: not found", sessionId);
             return false;
         }
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("result", data);
-        codec.writeNotification(socket, new JsonRPCNotification(method, params));
+        codec.writeNotification(connection, new JsonRPCNotification(method, params));
         return true;
     }
 

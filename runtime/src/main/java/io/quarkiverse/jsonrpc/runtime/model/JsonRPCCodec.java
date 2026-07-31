@@ -12,19 +12,19 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
-import io.vertx.core.http.ServerWebSocket;
+import io.quarkiverse.jsonrpc.runtime.JsonRPCConnection;
 
 public class JsonRPCCodec {
     private static final Logger LOG = Logger.getLogger(JsonRPCCodec.class);
     private final ObjectMapper objectMapper;
-    private volatile BiConsumer<ServerWebSocket, String> messageLogListener;
+    private volatile BiConsumer<JsonRPCConnection, String> messageLogListener;
 
     public JsonRPCCodec(ObjectMapper originalObjectMapper) {
         this.objectMapper = originalObjectMapper.copy(); // we should never change settings of the original ObjectMapper as they could have global impact
         objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
     }
 
-    public void setMessageLogListener(BiConsumer<ServerWebSocket, String> listener) {
+    public void setMessageLogListener(BiConsumer<JsonRPCConnection, String> listener) {
         this.messageLogListener = listener;
     }
 
@@ -36,34 +36,35 @@ public class JsonRPCCodec {
         return new JsonRPCRequest(objectMapper, jsonNode);
     }
 
-    public void writeResponse(ServerWebSocket socket, JsonRPCResponse<?> response) {
+    public void writeResponse(JsonRPCConnection connection, JsonRPCResponse<?> response) {
         try {
             String json = objectMapper.writeValueAsString(response);
-            socket.writeTextMessage(json);
-            logOutgoing(socket, json);
+            connection.writeTextMessage(json);
+            logOutgoing(connection, json);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
     }
 
-    public void writeBatchResponse(ServerWebSocket socket, List<JsonRPCResponse<?>> responses) {
+    public void writeBatchResponse(JsonRPCConnection connection, List<JsonRPCResponse<?>> responses) {
         try {
             String json = objectMapper.writeValueAsString(responses);
-            socket.writeTextMessage(json);
-            logOutgoing(socket, json);
+            connection.writeTextMessage(json);
+            logOutgoing(connection, json);
         } catch (JsonProcessingException ex) {
             throw new RuntimeException(ex);
         }
     }
 
-    public void writeSubscriptionItem(ServerWebSocket socket, String subscriptionId, Object item) {
+    public void writeSubscriptionItem(JsonRPCConnection connection, String subscriptionId, Object item) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
         params.put(JsonRPCKeys.RESULT, item);
-        writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
+        writeNotification(connection, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
     }
 
-    public void writeSubscriptionError(ServerWebSocket socket, String subscriptionId, JsonRPCResponse.Error error) {
+    public void writeSubscriptionError(JsonRPCConnection connection, String subscriptionId,
+            JsonRPCResponse.Error error) {
         Map<String, Object> errorDetail = new LinkedHashMap<>();
         errorDetail.put(JsonRPCKeys.CODE, error.code);
         errorDetail.put(JsonRPCKeys.MESSAGE, error.message);
@@ -74,25 +75,25 @@ public class JsonRPCCodec {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
         params.put(JsonRPCKeys.ERROR, errorDetail);
-        writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
+        writeNotification(connection, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
     }
 
-    public void writeSubscriptionComplete(ServerWebSocket socket, String subscriptionId) {
+    public void writeSubscriptionComplete(JsonRPCConnection connection, String subscriptionId) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put(JsonRPCKeys.SUBSCRIPTION, subscriptionId);
         params.put(JsonRPCKeys.COMPLETE, true);
-        writeNotification(socket, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
+        writeNotification(connection, new JsonRPCNotification(JsonRPCKeys.SUBSCRIPTION, params));
     }
 
-    public void writeNotification(ServerWebSocket socket, JsonRPCNotification notification) {
-        if (socket.isClosed()) {
-            LOG.debugf("Dropping notification for closed WebSocket: method=%s", notification.method);
+    public void writeNotification(JsonRPCConnection connection, JsonRPCNotification notification) {
+        if (connection.isClosed()) {
+            LOG.debugf("Dropping notification for closed connection: method=%s", notification.method);
             return;
         }
         try {
             String json = objectMapper.writeValueAsString(notification);
-            socket.writeTextMessage(json);
-            logOutgoing(socket, json);
+            connection.writeTextMessage(json);
+            logOutgoing(connection, json);
         } catch (JsonProcessingException ex) {
             LOG.errorf(ex, "Failed to serialize JSON-RPC notification: method=%s", notification.method);
             throw new RuntimeException(
@@ -100,10 +101,10 @@ public class JsonRPCCodec {
         }
     }
 
-    private void logOutgoing(ServerWebSocket socket, String json) {
-        BiConsumer<ServerWebSocket, String> listener = this.messageLogListener;
+    private void logOutgoing(JsonRPCConnection connection, String json) {
+        BiConsumer<JsonRPCConnection, String> listener = this.messageLogListener;
         if (listener != null) {
-            listener.accept(socket, json);
+            listener.accept(connection, json);
         }
     }
 }
