@@ -111,6 +111,8 @@ public class JsonRPCProcessor {
                 scope = annotationValue.asString();
             }
 
+            nativeClasses.add(classInfo.name().toString());
+
             AnnotationValue pathValue = annotationInstance.value("path");
             if (pathValue != null && !pathValue.asString().isEmpty()) {
                 String path = pathValue.asString();
