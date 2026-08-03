@@ -2,7 +2,7 @@
 
 include::./includes/attributes.adoc[]
 
-When the `quarkus-micrometer` extension is present, JSON-RPC automatically records metrics for every method invocation and tracks active WebSocket connections and streaming subscriptions. No configuration or code changes are needed.
+When the `quarkus-micrometer` extension is present, JSON-RPC automatically records metrics for every method invocation and tracks active connections and streaming subscriptions across all transports. No configuration or code changes are needed.
 
 == Setup
 
@@ -30,7 +30,7 @@ That's it — metrics are enabled automatically.
 
 | `jsonrpc.active.connections`
 | Gauge
-| Current number of open WebSocket connections.
+| Current number of active connections across all transports.
 
 | `jsonrpc.subscriptions.active`
 | Gauge

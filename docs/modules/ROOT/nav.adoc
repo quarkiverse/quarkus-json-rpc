@@ -15,6 +15,7 @@
 ** xref:guides-health.adoc[Health Check]
 ** xref:guides-openrpc.adoc[OpenRPC Service Discovery]
 ** xref:guides-javascript-client.adoc[JavaScript Client]
+** xref:guides-domain-socket.adoc[Domain Socket Transport]
 
 .Reference
 ** xref:reference-configuration.adoc[Configuration]

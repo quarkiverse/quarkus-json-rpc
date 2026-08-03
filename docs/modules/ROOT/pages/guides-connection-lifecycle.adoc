@@ -2,7 +2,7 @@
 
 include::./includes/attributes.adoc[]
 
-The extension fires CDI events when WebSocket clients connect and disconnect. Observe these events to log connections, initialize per-session state, or clean up resources on disconnect.
+The extension fires CDI events when clients connect and disconnect, regardless of transport. Observe these events to log connections, initialize per-session state, or clean up resources on disconnect.
 
 == Observing Connections
 

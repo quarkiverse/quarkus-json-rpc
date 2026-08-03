@@ -2,7 +2,7 @@
 
 include::./includes/attributes.adoc[]
 
-When the `quarkus-smallrye-health` extension is present, JSON-RPC automatically contributes a readiness health check that reports the WebSocket endpoint status and active connection count. No code changes are needed.
+When the `quarkus-smallrye-health` extension is present, JSON-RPC automatically contributes a readiness health check that reports the active connection count across all transports. No code changes are needed.
 
 == Setup
 
@@ -20,7 +20,7 @@ That's it — the health check is registered automatically.
 
 == Health Check Output
 
-The readiness endpoint (`/q/health/ready`) will include a `JSON-RPC WebSocket` check:
+The readiness endpoint (`/q/health/ready`) will include a `JSON-RPC` check:
 
 [source,json]
 ----
@@ -28,7 +28,7 @@ The readiness endpoint (`/q/health/ready`) will include a `JSON-RPC WebSocket` c
   "status": "UP",
   "checks": [
     {
-      "name": "JSON-RPC WebSocket",
+      "name": "JSON-RPC",
       "status": "UP",
       "data": {
         "activeConnections": 3
@@ -38,7 +38,7 @@ The readiness endpoint (`/q/health/ready`) will include a `JSON-RPC WebSocket` c
 }
 ----
 
-The check always reports `UP` when the WebSocket endpoint is running, and includes the current number of open WebSocket connections as additional data.
+The check always reports `UP` and includes the current number of active connections across all transports (WebSocket and domain socket) as additional data.
 
 == Disabling the Health Check
 

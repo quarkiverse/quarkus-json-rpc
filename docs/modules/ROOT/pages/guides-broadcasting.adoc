@@ -2,7 +2,7 @@
 
 include::./includes/attributes.adoc[]
 
-The `JsonRPCBroadcaster` service lets you push JSON-RPC notifications from the server to connected WebSocket clients. Inject it into any CDI bean — it does not need to be a `@JsonRPCApi` class.
+The `JsonRPCBroadcaster` service lets you push JSON-RPC notifications from the server to all connected clients regardless of transport. Inject it into any CDI bean - it does not need to be a `@JsonRPCApi` class.
 
 == Broadcast to All Clients
 

@@ -2,11 +2,11 @@
 
 include::./includes/attributes.adoc[]
 
-When multiple users connect to your JSON-RPC WebSocket endpoint simultaneously, each connection is fully isolated and the backend is designed to handle concurrent load efficiently.
+When multiple clients connect to your JSON-RPC endpoint simultaneously, each connection is fully isolated and the backend is designed to handle concurrent load efficiently. This applies to all transports (WebSocket and domain socket).
 
 == Connection Isolation
 
-Each WebSocket connection is independent. The extension tracks every connection as a separate session with its own unique ID. This means:
+Each connection is independent. The extension tracks every connection as a separate session with its own unique ID. This means:
 
 - **Requests and responses are scoped to a single connection** — a response is always sent back to the socket that made the request, never to another user.
 - **Streaming subscriptions (`Multi<T>`) are per-connection** — each client manages its own subscriptions. When a connection closes, only that connection's subscriptions are cancelled.
@@ -92,7 +92,7 @@ The default thread pool sizes work well for development and moderate loads. For 
 
 | `quarkus.vertx.event-loops-pool-size`
 | 2 × CPU cores
-| Number of event loop threads handling WebSocket I/O and non-blocking methods
+| Number of event loop threads handling I/O and non-blocking methods
 
 | `quarkus.vertx.worker-pool-size`
 | 20

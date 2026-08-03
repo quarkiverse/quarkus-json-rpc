@@ -1,0 +1,122 @@
+= Domain Socket Transport
+
+include::./includes/attributes.adoc[]
+
+The domain socket transport serves JSON-RPC 2.0 over Unix domain sockets using JSONL framing (newline-delimited JSON). This is ideal for local inter-process communication where a network connection is unnecessary - for example, agent-to-agent communication, CLI tools, or MCP servers.
+
+== Installation
+
+[source,xml,subs=attributes+]
+----
+<dependency>
+    <groupId>io.quarkiverse.json-rpc</groupId>
+    <artifactId>quarkus-json-rpc-domain-socket</artifactId>
+    <version>{project-version}</version>
+</dependency>
+----
+
+The extension includes Netty native transport for both Linux (epoll) and macOS (kqueue), so domain sockets work out of the box on both platforms.
+
+== Configuration
+
+Enable the transport and configure the socket path in `application.properties`:
+
+[source,properties]
+----
+quarkus.json-rpc.domain-socket.enabled=true
+quarkus.json-rpc.domain-socket.path=/tmp/my-app.sock
+----
+
+[cols="1,1,2"]
+|===
+| Property | Default | Description
+
+| `quarkus.json-rpc.domain-socket.enabled`
+| `false`
+| Enable JSON-RPC over Unix domain socket.
+
+| `quarkus.json-rpc.domain-socket.path`
+| `/tmp/quarkus-json-rpc.sock`
+| Path to the Unix domain socket file.
+|===
+
+The socket file is created when the application starts and cleaned up on shutdown.
+
+== Protocol
+
+Each JSON-RPC message is a single line of JSON terminated by `\n`. This format is commonly known as JSONL or NDJSON (newline-delimited JSON). Responses use the same framing.
+
+Request:
+[source]
+----
+{"jsonrpc":"2.0","id":1,"method":"GreetingService#hello","params":{"name":"World"}}\n
+----
+
+Response:
+[source]
+----
+{"jsonrpc":"2.0","id":1,"result":"Hello World"}\n
+----
+
+Batch requests are supported - send a JSON array as a single line.
+
+== Testing with socat
+
+Once the application is running, use `socat` to send requests from the command line. The subshell with `sleep` keeps the connection open while the server processes the request:
+
+[source,bash]
+----
+(printf '{"jsonrpc":"2.0","id":1,"method":"GreetingService#hello","params":{"name":"World"}}\n'; sleep 3) \
+  | socat - UNIX-CONNECT:/tmp/my-app.sock
+----
+
+== Using with WebSocket
+
+The domain socket transport can be used alongside the WebSocket transport in the same application. Add both dependencies and your `@JsonRPCApi` classes are accessible from both transports simultaneously:
+
+[source,xml,subs=attributes+]
+----
+<dependency>
+    <groupId>io.quarkiverse.json-rpc</groupId>
+    <artifactId>quarkus-json-rpc-websocket</artifactId>
+    <version>{project-version}</version>
+</dependency>
+<dependency>
+    <groupId>io.quarkiverse.json-rpc</groupId>
+    <artifactId>quarkus-json-rpc-domain-socket</artifactId>
+    <version>{project-version}</version>
+</dependency>
+----
+
+== Differences from WebSocket
+
+[cols="1,1,1"]
+|===
+| Feature | WebSocket | Domain Socket
+
+| Framing
+| WebSocket frames
+| Newline-delimited JSON (JSONL)
+
+| Network access
+| Yes (TCP)
+| Local only (Unix socket)
+
+| Browser support
+| Yes
+| No
+
+| Path-based routing
+| `@JsonRPCApi(path = "...")` restricts methods to specific WebSocket paths
+| All methods accessible on the socket regardless of `path` attribute
+
+| Security
+| HTTP auth policies, `Sec-WebSocket-Protocol` token auth
+| Relies on file-system permissions on the socket file
+
+| JavaScript client
+| Generated typed proxy available
+| Not applicable
+|===
+
+All other features work identically across both transports: method discovery, execution modes, parameters, streaming, broadcasting, health checks, metrics, timeouts, and connection lifecycle events.

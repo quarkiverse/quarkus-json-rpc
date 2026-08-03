@@ -1,11 +1,11 @@
 = Quarkus JSON-RPC
-:description: A Quarkus extension providing JSON-RPC 2.0 protocol support over WebSocket.
+:description: A Quarkus extension providing JSON-RPC 2.0 protocol support over WebSocket and Unix domain sockets.
 
 include::./includes/attributes.adoc[]
 
-*Expose your Java methods as JSON-RPC 2.0 endpoints over WebSocket — with a single annotation.*
+*Expose your Java methods as JSON-RPC 2.0 endpoints — with a single annotation.*
 
-Quarkus JSON-RPC discovers classes annotated with `@JsonRPCApi` at build time and makes their public methods callable via the https://www.jsonrpc.org/specification[JSON-RPC 2.0] protocol over a WebSocket connection. No manual routing, no protocol plumbing.
+Quarkus JSON-RPC discovers classes annotated with `@JsonRPCApi` at build time and makes their public methods callable via the https://www.jsonrpc.org/specification[JSON-RPC 2.0] protocol. Choose your transport: WebSocket for browser and network clients, or JSONL over Unix domain sockets for local IPC. No manual routing, no protocol plumbing.
 
 == In a Glance
 
@@ -45,18 +45,40 @@ Response:
 
 == Installation
 
-Add the extension to your project:
+The extension is split into a transport-agnostic core and pluggable transport modules. Add the transport you need:
+
+=== WebSocket transport
+
+For browser clients, network clients, or any WebSocket-based integration:
 
 [source,xml,subs=attributes+]
 ----
 <dependency>
     <groupId>io.quarkiverse.json-rpc</groupId>
-    <artifactId>quarkus-json-rpc</artifactId>
+    <artifactId>quarkus-json-rpc-websocket</artifactId>
     <version>{project-version}</version>
 </dependency>
 ----
 
+=== Domain socket transport
+
+For local IPC using JSONL (newline-delimited JSON) over Unix domain sockets:
+
+[source,xml,subs=attributes+]
+----
+<dependency>
+    <groupId>io.quarkiverse.json-rpc</groupId>
+    <artifactId>quarkus-json-rpc-domain-socket</artifactId>
+    <version>{project-version}</version>
+</dependency>
+----
+
+Both transports can be used simultaneously in the same application. The `@JsonRPCApi` annotation and all core features work identically regardless of transport.
+
 == Key Features
+
+Pluggable transports::
+WebSocket for browser and network clients, or JSONL over Unix domain sockets for local IPC. Both transports share the same `@JsonRPCApi` annotation and core engine - add a dependency and you're done.
 
 Build-time discovery::
 All `@JsonRPCApi` classes are found at build time via Jandex — no runtime classpath scanning, full ahead-of-time compilation and GraalVM native image support.
@@ -135,6 +157,9 @@ An interactive method browser and tester is available in the Quarkus Dev UI duri
 
 | xref:guides-javascript-client.adoc[JavaScript Client]
 | Generate a typed JavaScript proxy for calling your endpoints from the browser.
+
+| xref:guides-domain-socket.adoc[Domain Socket Transport]
+| Serve JSON-RPC over Unix domain sockets using JSONL framing for local IPC.
 
 | xref:reference-configuration.adoc[Configuration Reference]
 | All available configuration properties.
