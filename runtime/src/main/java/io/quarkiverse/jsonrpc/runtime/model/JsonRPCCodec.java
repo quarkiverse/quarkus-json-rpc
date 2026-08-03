@@ -37,10 +37,6 @@ public class JsonRPCCodec {
     }
 
     public void writeResponse(JsonRPCConnection connection, JsonRPCResponse<?> response) {
-        if (connection.isClosed()) {
-            LOG.debugf("Dropping response for closed connection: id=%s", response.id);
-            return;
-        }
         try {
             String json = objectMapper.writeValueAsString(response);
             connection.writeTextMessage(json);
@@ -51,10 +47,6 @@ public class JsonRPCCodec {
     }
 
     public void writeBatchResponse(JsonRPCConnection connection, List<JsonRPCResponse<?>> responses) {
-        if (connection.isClosed()) {
-            LOG.debugf("Dropping batch response for closed connection");
-            return;
-        }
         try {
             String json = objectMapper.writeValueAsString(responses);
             connection.writeTextMessage(json);

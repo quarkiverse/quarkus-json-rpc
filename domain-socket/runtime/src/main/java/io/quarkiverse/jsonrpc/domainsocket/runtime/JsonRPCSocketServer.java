@@ -68,8 +68,8 @@ public final class JsonRPCSocketServer {
             netSocket.handler(parser);
 
             netSocket.closeHandler(v -> {
-                connection.markClosed();
                 router.removeConnection(connection);
+                connection.markClosed();
             });
 
             netSocket.exceptionHandler(err -> {

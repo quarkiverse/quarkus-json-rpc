@@ -27,9 +27,6 @@ public final class JsonlConnection implements JsonRPCConnection {
 
     @Override
     public void writeTextMessage(String message) {
-        if (closed.get()) {
-            return;
-        }
         String line = message.replace("\n", "").replace("\r", "") + "\n";
         socket.write(line).onFailure(err -> {
             LOG.debugf(err, "Failed to write to domain socket connection");

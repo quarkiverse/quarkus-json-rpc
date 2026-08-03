@@ -12,32 +12,32 @@ The server creates a Unix domain socket at `/tmp/quarkus-json-rpc-sample.sock`.
 
 ## Testing with socat
 
-Send a request (note the trailing `\n` for JSONL framing):
+The `sleep` in the subshell keeps the connection open while the server processes the request:
 
 ```bash
-printf '{"jsonrpc":"2.0","id":1,"method":"GreetingResource#greet"}\n' \
-  | socat -t5 - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
+(printf '{"jsonrpc":"2.0","id":1,"method":"GreetingResource#greet"}\n'; sleep 3) \
+  | socat - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
 ```
 
 With parameters:
 
 ```bash
-printf '{"jsonrpc":"2.0","id":2,"method":"GreetingResource#greet","params":{"name":"World"}}\n' \
-  | socat -t5 - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
+(printf '{"jsonrpc":"2.0","id":2,"method":"GreetingResource#greet","params":{"name":"World"}}\n'; sleep 3) \
+  | socat - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
 ```
 
 Async method (Uni):
 
 ```bash
-printf '{"jsonrpc":"2.0","id":3,"method":"GreetingResource#greetAsync","params":{"name":"Quarkus"}}\n' \
-  | socat -t5 - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
+(printf '{"jsonrpc":"2.0","id":3,"method":"GreetingResource#greetAsync","params":{"name":"Quarkus"}}\n'; sleep 3) \
+  | socat - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
 ```
 
 Streaming (Multi) - returns an ack with a subscription ID followed by items and a completion notification:
 
 ```bash
-printf '{"jsonrpc":"2.0","id":4,"method":"GreetingResource#greetStream","params":{"name":"Stream"}}\n' \
-  | socat -t5 - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
+(printf '{"jsonrpc":"2.0","id":4,"method":"GreetingResource#greetStream","params":{"name":"Stream"}}\n'; sleep 3) \
+  | socat - UNIX-CONNECT:/tmp/quarkus-json-rpc-sample.sock
 ```
 
 ## Protocol
