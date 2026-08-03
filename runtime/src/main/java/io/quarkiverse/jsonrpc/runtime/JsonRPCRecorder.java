@@ -12,7 +12,6 @@ import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.SyntheticCreationalContext;
-import io.quarkus.arc.runtime.BeanContainer;
 import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
 
@@ -73,7 +72,4 @@ public class JsonRPCRecorder {
         };
     }
 
-    public void enableMessageLog(BeanContainer beanContainer) {
-        beanContainer.beanInstance(JsonRPCRouter.class).enableMessageLog();
-    }
 }

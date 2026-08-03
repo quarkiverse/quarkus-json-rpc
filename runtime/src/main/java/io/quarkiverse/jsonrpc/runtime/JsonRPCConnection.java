@@ -2,8 +2,8 @@ package io.quarkiverse.jsonrpc.runtime;
 
 /**
  * Transport-agnostic abstraction for a JSON-RPC connection.
- * Implemented by {@link WebSocketConnection} for WebSocket transport
- * and {@link JsonlConnection} for JSONL-over-domain-socket transport.
+ * Implemented by WebSocketConnection for WebSocket transport
+ * and JsonlConnection for JSONL-over-domain-socket transport.
  */
 public interface JsonRPCConnection {
 

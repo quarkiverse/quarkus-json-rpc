@@ -20,9 +20,8 @@ import io.vertx.core.parsetools.RecordParser;
  * A JSON-RPC server that listens on a Unix domain socket using JSONL framing
  * (one JSON-RPC message per line, newline-delimited).
  * <p>
- * Requires a native transport (epoll on Linux, kqueue on macOS) for domain socket support.
- * Add {@code io.netty:netty-transport-native-epoll} (Linux) or
- * {@code io.netty:netty-transport-native-kqueue} (macOS) to your dependencies.
+ * The extension includes Netty native transport dependencies for both Linux (epoll)
+ * and macOS (kqueue), so domain sockets work out of the box on both platforms.
  */
 public class JsonRPCSocketServer {
     private static final Logger LOG = Logger.getLogger(JsonRPCSocketServer.class);
@@ -40,16 +39,14 @@ public class JsonRPCSocketServer {
     public void start() {
         deleteSocketFile();
 
-        // Domain sockets require native transport (epoll/kqueue).
-        // Create a dedicated Vertx instance with preferNativeTransport enabled.
         vertx = Vertx.vertx(new VertxOptions().setPreferNativeTransport(true));
         if (!vertx.isNativeTransportEnabled()) {
-            LOG.errorf("Native transport is not available. Domain socket server cannot start. "
-                    + "Add io.netty:netty-transport-native-epoll (Linux) or "
-                    + "io.netty:netty-transport-native-kqueue (macOS) to your dependencies.");
             vertx.close();
             vertx = null;
-            return;
+            throw new IllegalStateException(
+                    "JSON-RPC domain socket server requires Netty native transport but none is available. "
+                            + "Add io.netty:netty-transport-native-epoll (Linux) or "
+                            + "io.netty:netty-transport-native-kqueue (macOS) to your dependencies.");
         }
 
         server = vertx.createNetServer(new NetServerOptions());
@@ -65,10 +62,14 @@ public class JsonRPCSocketServer {
             });
             netSocket.handler(parser);
 
-            netSocket.closeHandler(v -> router.removeConnection(connection));
+            netSocket.closeHandler(v -> {
+                connection.markClosed();
+                router.removeConnection(connection);
+            });
 
             netSocket.exceptionHandler(err -> {
                 LOG.warnf(err, "Error on JSON-RPC domain socket connection");
+                connection.markClosed();
                 router.removeConnection(connection);
                 netSocket.close();
             });
@@ -96,15 +97,22 @@ public class JsonRPCSocketServer {
 
     public void stop() {
         if (server != null) {
+            CountDownLatch latch = new CountDownLatch(1);
             server.close().onComplete(ar -> {
-                deleteSocketFile();
                 if (ar.failed()) {
                     LOG.warnf(ar.cause(), "Error closing JSON-RPC domain socket server");
                 }
-                if (vertx != null) {
-                    vertx.close();
-                }
+                latch.countDown();
             });
+            try {
+                latch.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            deleteSocketFile();
+            if (vertx != null) {
+                vertx.close();
+            }
         }
     }
 

@@ -16,7 +16,10 @@ public final class JsonlConnection implements JsonRPCConnection {
 
     public JsonlConnection(NetSocket socket) {
         this.socket = socket;
-        socket.closeHandler(v -> closed.set(true));
+    }
+
+    public void markClosed() {
+        closed.set(true);
     }
 
     @Override
