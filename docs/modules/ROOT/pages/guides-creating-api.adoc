@@ -147,7 +147,7 @@ Void methods follow the same execution mode rules as any other method — they a
 
 == Custom Path
 
-By default, all `@JsonRPCApi` classes share the global WebSocket endpoint (see <<websocket-endpoint>> below). You can assign a class to a separate WebSocket path using the `path` attribute:
+By default, all `@JsonRPCApi` classes share the global endpoint (see <<websocket-endpoint>> below). You can assign a class to a separate path using the `path` attribute:
 
 [source,java]
 ----
@@ -160,7 +160,9 @@ public class AdminService {
 }
 ----
 
-This registers an additional WebSocket route at `/admin-rpc`. The methods on `AdminService` are _only_ accessible through the custom path — clients connected to the default global endpoint will receive a "method not found" error if they try to call `AdminService` methods.
+This registers an additional WebSocket route at `/admin-rpc`. The methods on `AdminService` are _only_ accessible through the custom path - clients connected to the default global endpoint will receive a "method not found" error if they try to call `AdminService` methods.
+
+NOTE: Path-based routing applies to the WebSocket transport only. Domain socket connections have access to all methods regardless of `path` attribute.
 
 You can combine `path` with a custom scope:
 
@@ -175,7 +177,7 @@ public class AdminService {
 }
 ----
 
-Now the method is called as `admin#getStatus` via the `/admin-rpc` WebSocket endpoint.
+Now the method is called as `admin#getStatus` via the `/admin-rpc` endpoint.
 
 === Multiple API Groups
 
@@ -205,7 +207,7 @@ This is useful for applying different security policies per path. See xref:guide
 [#websocket-endpoint]
 == WebSocket Endpoint
 
-By default, all JSON-RPC methods are served through a WebSocket endpoint at:
+When using the WebSocket transport, all JSON-RPC methods are served through a WebSocket endpoint at:
 
 ----
 ws://localhost:8080/json-rpc
@@ -214,6 +216,8 @@ ws://localhost:8080/json-rpc
 Classes with a `path` attribute register additional WebSocket routes at their specified paths and are only callable from those paths. Classes without a `path` are served exclusively on the default global endpoint.
 
 See xref:reference-configuration.adoc[Configuration Reference] to change the default path.
+
+For the domain socket transport, see xref:guides-domain-socket.adoc[Domain Socket Transport].
 
 == JSON-RPC 2.0 Protocol
 
