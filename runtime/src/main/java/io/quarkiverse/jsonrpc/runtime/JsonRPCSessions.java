@@ -6,75 +6,73 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import io.vertx.core.http.ServerWebSocket;
-
 /**
- * Tracks all connected WebSocket sessions with unique IDs.
+ * Tracks all connected JSON-RPC sessions with unique IDs.
  * Shared by {@link JsonRPCRouter} and {@link io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster}.
  */
 public class JsonRPCSessions {
 
-    private final ConcurrentHashMap<String, ServerWebSocket> idToSocket = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<ServerWebSocket, String> socketToId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, JsonRPCConnection> idToConnection = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<JsonRPCConnection, String> connectionToId = new ConcurrentHashMap<>();
 
     /**
-     * Register a new WebSocket session.
+     * Register a new session.
      *
      * @return the generated session ID
      */
-    public String addSession(ServerWebSocket socket) {
+    public String addSession(JsonRPCConnection connection) {
         String sessionId = UUID.randomUUID().toString();
-        idToSocket.put(sessionId, socket);
-        socketToId.put(socket, sessionId);
+        idToConnection.put(sessionId, connection);
+        connectionToId.put(connection, sessionId);
         return sessionId;
     }
 
     /**
-     * Remove a WebSocket session.
+     * Remove a session.
      */
-    public void removeSession(ServerWebSocket socket) {
-        String sessionId = socketToId.remove(socket);
+    public void removeSession(JsonRPCConnection connection) {
+        String sessionId = connectionToId.remove(connection);
         if (sessionId != null) {
-            idToSocket.remove(sessionId);
+            idToConnection.remove(sessionId);
         }
     }
 
     /**
-     * Get the socket for a given session ID.
+     * Get the connection for a given session ID.
      *
-     * @return the socket, or {@code null} if no such session exists
+     * @return the connection, or {@code null} if no such session exists
      */
-    public ServerWebSocket getSocket(String sessionId) {
-        return idToSocket.get(sessionId);
+    public JsonRPCConnection getConnection(String sessionId) {
+        return idToConnection.get(sessionId);
     }
 
     /**
-     * Get the session ID for a given socket.
+     * Get the session ID for a given connection.
      *
-     * @return the session ID, or {@code null} if the socket is not tracked
+     * @return the session ID, or {@code null} if the connection is not tracked
      */
-    public String getSessionId(ServerWebSocket socket) {
-        return socketToId.get(socket);
+    public String getSessionId(JsonRPCConnection connection) {
+        return connectionToId.get(connection);
     }
 
     /**
-     * @return all currently connected sockets
+     * @return all currently connected connections
      */
-    public Collection<ServerWebSocket> getAllSockets() {
-        return List.copyOf(idToSocket.values());
+    public Collection<JsonRPCConnection> getAllConnections() {
+        return List.copyOf(idToConnection.values());
     }
 
     /**
      * @return the number of currently active connections
      */
     public int getActiveConnectionCount() {
-        return idToSocket.size();
+        return idToConnection.size();
     }
 
     /**
      * @return the set of all connected session IDs
      */
     public Set<String> getSessionIds() {
-        return Set.copyOf(idToSocket.keySet());
+        return Set.copyOf(idToConnection.keySet());
     }
 }

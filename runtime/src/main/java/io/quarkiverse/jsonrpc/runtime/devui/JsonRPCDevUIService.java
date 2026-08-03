@@ -8,6 +8,7 @@ import java.util.StringJoiner;
 
 import jakarta.inject.Inject;
 
+import io.quarkiverse.jsonrpc.runtime.JsonRPCConnection;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCSessions;
 import io.quarkiverse.jsonrpc.runtime.ReflectionInfo;
@@ -16,7 +17,6 @@ import io.quarkus.runtime.annotations.JsonRpcDescription;
 import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.subscription.Cancellable;
-import io.vertx.core.http.ServerWebSocket;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -77,9 +77,9 @@ public class JsonRPCDevUIService {
             session.put("sessionId", id);
 
             // Count subscriptions for this session
-            ServerWebSocket socket = sessions.getSocket(id);
-            Map<ServerWebSocket, Map<String, Cancellable>> allSubs = router.getSocketSubscriptions();
-            Map<String, Cancellable> subs = allSubs.get(socket);
+            JsonRPCConnection connection = sessions.getConnection(id);
+            Map<JsonRPCConnection, Map<String, Cancellable>> allSubs = router.getConnectionSubscriptions();
+            Map<String, Cancellable> subs = allSubs.get(connection);
             session.put("subscriptionCount", subs != null ? subs.size() : 0);
 
             result.add(session);
@@ -92,10 +92,10 @@ public class JsonRPCDevUIService {
     @DevMCPEnableByDefault
     public JsonArray listSubscriptions() {
         JsonArray result = new JsonArray();
-        Map<ServerWebSocket, Map<String, Cancellable>> allSubs = router.getSocketSubscriptions();
-        for (Map.Entry<ServerWebSocket, Map<String, Cancellable>> entry : allSubs.entrySet()) {
-            ServerWebSocket socket = entry.getKey();
-            String sessionId = sessions.getSessionId(socket);
+        Map<JsonRPCConnection, Map<String, Cancellable>> allSubs = router.getConnectionSubscriptions();
+        for (Map.Entry<JsonRPCConnection, Map<String, Cancellable>> entry : allSubs.entrySet()) {
+            JsonRPCConnection connection = entry.getKey();
+            String sessionId = sessions.getSessionId(connection);
             for (String subId : entry.getValue().keySet()) {
                 result.add(new JsonObject()
                         .put("sessionId", sessionId)

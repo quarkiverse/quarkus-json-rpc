@@ -17,7 +17,7 @@ public class JsonRPCHealthCheck implements HealthCheck {
 
     @Override
     public HealthCheckResponse call() {
-        HealthCheckResponseBuilder builder = HealthCheckResponse.named("JSON-RPC WebSocket").up();
+        HealthCheckResponseBuilder builder = HealthCheckResponse.named("JSON-RPC").up();
         builder.withData("activeConnections", sessions.getActiveConnectionCount());
         return builder.build();
     }

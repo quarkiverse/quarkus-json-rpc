@@ -29,7 +29,7 @@ public class HealthCheckJsonRpcTest {
         assertEquals(HealthCheckResponse.Status.UP, health.getStatus());
 
         String payload = health.getPayload().toString();
-        assertTrue(payload.contains("JSON-RPC WebSocket"), "Health check should be named 'JSON-RPC WebSocket'");
+        assertTrue(payload.contains("JSON-RPC"), "Health check should be named 'JSON-RPC'");
         assertTrue(payload.contains("activeConnections"), "Health check should report activeConnections");
     }
 }

@@ -13,18 +13,6 @@ import io.smallrye.config.WithName;
 public interface JsonRPCConfig {
 
     /**
-     * Configuration properties for the JsonRPC Websocket
-     */
-    @WithName("web-socket")
-    JsonRPCWebSocketConfig webSocket();
-
-    /**
-     * Configuration properties for the JavaScript client proxy generation
-     */
-    @WithName("js-client")
-    JsonRPCClientConfig jsClient();
-
-    /**
      * Configuration properties for the health check
      */
     @WithName("health")

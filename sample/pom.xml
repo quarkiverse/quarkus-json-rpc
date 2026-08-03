@@ -7,76 +7,12 @@
         <artifactId>quarkus-json-rpc-parent</artifactId>
         <version>999-SNAPSHOT</version>
     </parent>
-    <artifactId>quarkus-json-rpc-sample</artifactId>
-    <name>Quarkus Json Rpc - Sample</name>
+    <artifactId>quarkus-json-rpc-sample-parent</artifactId>
+    <packaging>pom</packaging>
+    <name>Quarkus Json Rpc - Sample Parent</name>
 
-    <properties>
-        <skipITs>true</skipITs>
-    </properties>
-
-    <dependencies>
-        <dependency>
-            <groupId>io.quarkiverse.json-rpc</groupId>
-            <artifactId>quarkus-json-rpc</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-arc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-web-dependency-locator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.mvnpm</groupId>
-            <artifactId>lit</artifactId>
-            <version>3.3.3</version>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-elytron-security-properties-file</artifactId>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>io.quarkus</groupId>
-                <artifactId>quarkus-maven-plugin</artifactId>
-                <extensions>true</extensions>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>build</goal>
-                            <goal>generate-code</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>${compiler-plugin.version}</version>
-                <configuration>
-                    <compilerArgs>
-                        <arg>-parameters</arg>
-                    </compilerArgs>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
-    <profiles>
-        <profile>
-            <id>native</id>
-            <activation>
-                <property>
-                    <name>native</name>
-                </property>
-            </activation>
-            <properties>
-                <quarkus.native.enabled>true</quarkus.native.enabled>
-            </properties>
-        </profile>
-    </profiles>
+    <modules>
+        <module>websocket</module>
+        <module>domain-socket</module>
+    </modules>
 </project>

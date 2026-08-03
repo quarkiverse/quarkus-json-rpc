@@ -21,7 +21,7 @@
         </dependency>
         <dependency>
             <groupId>io.quarkiverse.json-rpc</groupId>
-            <artifactId>quarkus-json-rpc</artifactId>
+            <artifactId>quarkus-json-rpc-websocket</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

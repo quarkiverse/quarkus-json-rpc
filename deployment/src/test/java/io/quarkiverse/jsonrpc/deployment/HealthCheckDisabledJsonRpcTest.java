@@ -24,7 +24,7 @@ public class HealthCheckDisabledJsonRpcTest {
     @Test
     public void testHealthCheckAbsent() {
         String payload = reporter.getHealth().getPayload().toString();
-        assertFalse(payload.contains("JSON-RPC WebSocket"),
+        assertFalse(payload.contains("JSON-RPC"),
                 "Health check should not be present when disabled");
     }
 }
