@@ -393,23 +393,30 @@ public class JsonRPCRouter {
                 if (ar.failed()) {
                     LOG.warnf(ar.cause(), "JSON-RPC hot reload scan failed");
                 }
-                dispatchRoute(jsonRpcRequest, connection)
-                        .subscribe().with(result -> {
+                subscribeRoute(jsonRpcRequest, connection, notification);
+            });
+        } else {
+            subscribeRoute(jsonRpcRequest, connection, notification);
+        }
+    }
+
+    private void subscribeRoute(JsonRPCRequest jsonRpcRequest, JsonRPCConnection connection, boolean notification) {
+        dispatchRoute(jsonRpcRequest, connection)
+                .subscribe().with(
+                        result -> {
                             if (!notification) {
                                 codec.writeResponse(connection, result.response);
                                 result.runPostWrite();
                             }
+                        },
+                        failure -> {
+                            LOG.errorf(failure, "Failed to process JSON-RPC request: method=%s",
+                                    jsonRpcRequest.getMethod());
+                            if (!notification) {
+                                codec.writeResponse(connection, new JsonRPCResponse<>(jsonRpcRequest.getId(),
+                                        new JsonRPCResponse.Error(JsonRPCKeys.INTERNAL_ERROR, "Internal error")));
+                            }
                         });
-            });
-        } else {
-            dispatchRoute(jsonRpcRequest, connection)
-                    .subscribe().with(result -> {
-                        if (!notification) {
-                            codec.writeResponse(connection, result.response);
-                            result.runPostWrite();
-                        }
-                    });
-        }
     }
 
     private void routeBatch(List<JsonNode> elements, JsonRPCConnection connection) {

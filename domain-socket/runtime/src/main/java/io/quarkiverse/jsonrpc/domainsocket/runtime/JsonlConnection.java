@@ -2,6 +2,8 @@ package io.quarkiverse.jsonrpc.domainsocket.runtime;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.jboss.logging.Logger;
+
 import io.quarkiverse.jsonrpc.runtime.JsonRPCConnection;
 import io.vertx.core.net.NetSocket;
 
@@ -10,25 +12,29 @@ import io.vertx.core.net.NetSocket;
  * (one JSON object per line, newline-delimited).
  */
 public final class JsonlConnection implements JsonRPCConnection {
+    private static final Logger LOG = Logger.getLogger(JsonlConnection.class);
 
     private final NetSocket socket;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public JsonlConnection(NetSocket socket) {
-        this.socket = socket;
+    JsonlConnection(NetSocket socket) {
+        this.socket = java.util.Objects.requireNonNull(socket, "socket");
     }
 
-    public void markClosed() {
+    void markClosed() {
         closed.set(true);
     }
 
     @Override
     public void writeTextMessage(String message) {
-        // Strip indentation newlines (from Jackson INDENT_OUTPUT) to produce
-        // a single-line JSON message, then append \n for JSONL framing.
-        // This is safe because literal newlines inside JSON string values are
-        // escaped by Jackson as \\n (two characters), not as actual newline bytes.
-        socket.write(message.replace("\n", "").replace("\r", "") + "\n");
+        if (closed.get()) {
+            return;
+        }
+        String line = message.replace("\n", "").replace("\r", "") + "\n";
+        socket.write(line).onFailure(err -> {
+            LOG.debugf(err, "Failed to write to domain socket connection");
+            markClosed();
+        });
     }
 
     @Override
@@ -42,6 +48,7 @@ public final class JsonlConnection implements JsonRPCConnection {
     }
 
     public void close() {
+        markClosed();
         socket.close();
     }
 }

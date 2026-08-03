@@ -348,17 +348,6 @@ public class JsonRPCWebSocketProcessor {
             "io.smallrye.mutiny.Multi",
             "java.util.concurrent.Flow$Publisher");
 
-    private static final Set<String> NON_STREAMING_REACTIVE_TYPES = Set.of(
-            "io.smallrye.mutiny.Uni",
-            "java.util.concurrent.CompletionStage");
-
-    private static final Set<String> REACTIVE_TYPES;
-    static {
-        Set<String> all = new java.util.HashSet<>(NON_STREAMING_REACTIVE_TYPES);
-        all.addAll(STREAMING_TYPES);
-        REACTIVE_TYPES = Set.copyOf(all);
-    }
-
     private boolean isStreamingReturnType(JsonRPCMethod method) {
         int paramCount = method.hasParams() ? method.getParams().size() : 0;
         return isReturnTypeAssignableTo(method.getClazz(), method.getMethodName(), paramCount, STREAMING_TYPES);

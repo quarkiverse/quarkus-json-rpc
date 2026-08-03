@@ -42,6 +42,7 @@ public class JsonRPCWebSocket implements Handler<RoutingContext> {
                         jsonRpcRouter.addConnection(connection, capturedIdentity);
                         socket.textMessageHandler(msg -> jsonRpcRouter.handleMessage(connection, msg));
                         socket.closeHandler(v -> jsonRpcRouter.removeConnection(connection));
+                        socket.exceptionHandler(err -> LOG.warnf(err, "Error on JSON-RPC WebSocket connection"));
                     } else {
                         LOG.error("Failed to connect to json-rpc websocket server", event.cause());
                     }

@@ -1,5 +1,7 @@
 package io.quarkiverse.jsonrpc.websocket.runtime;
 
+import java.util.Objects;
+
 import io.quarkiverse.jsonrpc.runtime.JsonRPCConnection;
 import io.vertx.core.http.ServerWebSocket;
 
@@ -11,7 +13,7 @@ public final class WebSocketConnection implements JsonRPCConnection {
     private final ServerWebSocket socket;
 
     public WebSocketConnection(ServerWebSocket socket) {
-        this.socket = socket;
+        this.socket = Objects.requireNonNull(socket, "socket");
     }
 
     @Override
