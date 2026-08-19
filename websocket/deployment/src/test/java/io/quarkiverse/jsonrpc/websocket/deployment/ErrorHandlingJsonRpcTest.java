@@ -60,6 +60,15 @@ public class ErrorHandlingJsonRpcTest {
     }
 
     @Test
+    public void testMalformedJsonReturnsParseError() throws Exception {
+        JsonObject response = sendAndGetResponse("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":");
+
+        Assertions.assertNotNull(response.getJsonObject("error"), "Should contain an error object");
+        Assertions.assertEquals(-32700, response.getJsonObject("error").getInteger("code"),
+                "Error code should be PARSE_ERROR (-32700)");
+    }
+
+    @Test
     public void testObjectMissingMethodReturnsInvalidRequest() throws Exception {
         String request = JsonObject.of("jsonrpc", "2.0", "id", 1).encode();
 
