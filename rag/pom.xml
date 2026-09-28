@@ -13,10 +13,6 @@
     <name>Quarkus Json Rpc - RAG</name>
     <description>RAG vector embeddings for Quarkus JSON-RPC documentation</description>
 
-    <properties>
-        <skipRagGeneration>true</skipRagGeneration>
-    </properties>
-
     <build>
         <plugins>
             <plugin>
@@ -34,32 +30,15 @@
                 <artifactId>quarkus-documentation-rag-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>generate-rag</id>
-                        <goals>
-                            <goal>generate-rag</goal>
-                        </goals>
+                        <!-- Configures the execution that quarkiverse-parent's rag profile adds (-Drag) -->
+                        <id>generate-extension-rag</id>
                         <configuration>
                             <guidesDirectory>${project.basedir}/../docs/modules/ROOT/pages</guidesDirectory>
-                            <skip>${skipRagGeneration}</skip>
+                            <guideBaseUrl>https://docs.quarkiverse.io/quarkus-json-rpc/dev</guideBaseUrl>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>rag</id>
-            <properties>
-                <skipRagGeneration>false</skipRagGeneration>
-            </properties>
-        </profile>
-        <profile>
-            <id>release</id>
-            <properties>
-                <skipRagGeneration>false</skipRagGeneration>
-            </properties>
-        </profile>
-    </profiles>
 </project>

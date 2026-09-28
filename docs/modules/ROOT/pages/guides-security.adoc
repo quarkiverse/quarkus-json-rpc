@@ -1,5 +1,6 @@
 = Security
 :description: Securing JSON-RPC endpoints with Quarkus security annotations and HTTP policies.
+:extensions: io.quarkiverse.json-rpc:quarkus-json-rpc
 
 include::./includes/attributes.adoc[]
 

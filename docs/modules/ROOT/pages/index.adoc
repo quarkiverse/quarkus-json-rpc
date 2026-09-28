@@ -1,5 +1,6 @@
 = Quarkus JSON-RPC
 :description: A Quarkus extension providing JSON-RPC 2.0 protocol support over WebSocket and Unix domain sockets.
+:extensions: io.quarkiverse.json-rpc:quarkus-json-rpc
 
 include::./includes/attributes.adoc[]
 

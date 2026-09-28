@@ -1,4 +1,5 @@
 = Collections, Maps & Optionals
+:extensions: io.quarkiverse.json-rpc:quarkus-json-rpc
 
 include::./includes/attributes.adoc[]
 
