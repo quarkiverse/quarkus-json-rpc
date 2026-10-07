@@ -337,7 +337,7 @@ public class JsonRPCWebSocketProcessor {
                 .methodName("getEndpointPath")
                 .description("Get the configured WebSocket endpoint path for JSON-RPC connections")
                 .function(params -> path)
-                .enableMcpFuctionByDefault()
+                .enableMcpFunctionByDefault()
                 .build();
         return actions;
     }

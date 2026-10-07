@@ -10,12 +10,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JavaType;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 public class JsonRPCRequest {
     private final ObjectMapper objectMapper;
@@ -41,7 +41,7 @@ public class JsonRPCRequest {
     }
 
     public String getJsonrpc() {
-        String value = jsonNode.get(JSONRPC).asText();
+        String value = jsonNode.get(JSONRPC).asString();
         if (value != null) {
             return value;
         }
@@ -49,7 +49,7 @@ public class JsonRPCRequest {
     }
 
     public String getMethod() {
-        return jsonNode.get(METHOD).asText();
+        return jsonNode.get(METHOD).asString();
     }
 
     public boolean hasParams() {
@@ -72,7 +72,7 @@ public class JsonRPCRequest {
                 if (paramsObject != null && paramsObject.size() > 0) {
                     try {
                         cachedNamedParams = objectMapper.treeToValue(paramsObject, Map.class);
-                    } catch (IllegalArgumentException | JsonProcessingException ex) {
+                    } catch (IllegalArgumentException | JacksonException ex) {
                         throw new RuntimeException(ex);
                     }
                 }
@@ -92,7 +92,7 @@ public class JsonRPCRequest {
                         JsonNode node = paramsObject.get(i);
                         try {
                             objects[i] = objectMapper.treeToValue(node, Object.class);
-                        } catch (IllegalArgumentException | JsonProcessingException ex) {
+                        } catch (IllegalArgumentException | JacksonException ex) {
                             throw new RuntimeException(ex);
                         }
                     }
@@ -129,7 +129,7 @@ public class JsonRPCRequest {
         JavaType javaType = objectMapper.getTypeFactory().constructType(genericType);
         try {
             return objectMapper.treeToValue(paramsNode.get(key), javaType);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new RuntimeException(ex);
         }
     }
@@ -142,7 +142,7 @@ public class JsonRPCRequest {
         JavaType javaType = objectMapper.getTypeFactory().constructType(genericType);
         try {
             return objectMapper.treeToValue(paramsNode.get(pos - 1), javaType);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new RuntimeException(ex);
         }
     }

@@ -14,7 +14,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkiverse.jsonrpc.app.HelloResource;
 import io.quarkiverse.jsonrpc.app.MultiResource;
-import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.QuarkusExtensionTest;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.json.JsonArray;
@@ -29,7 +29,7 @@ public class DomainSocketJsonRpcTest {
     static final String SOCKET_PATH = "/tmp/quarkus-json-rpc-test.sock";
 
     @RegisterExtension
-    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class, MultiResource.class);
             })
@@ -37,14 +37,21 @@ public class DomainSocketJsonRpcTest {
             .overrideConfigKey("quarkus.json-rpc.domain-socket.path", SOCKET_PATH);
 
     static Vertx clientVertx;
+    // Kept in a field on purpose: Vert.x 5 closes garbage collected NetClients, which would
+    // kill in-flight connections if the client were only referenced from connect()
+    static NetClient client;
 
     @BeforeAll
     static void setupVertx() {
         clientVertx = Vertx.vertx(new VertxOptions().setPreferNativeTransport(true));
+        client = clientVertx.createNetClient();
     }
 
     @AfterAll
     static void teardownVertx() {
+        if (client != null) {
+            client.close().toCompletionStage().toCompletableFuture().join();
+        }
         if (clientVertx != null) {
             clientVertx.close().toCompletionStage().toCompletableFuture().join();
         }
@@ -191,7 +198,6 @@ public class DomainSocketJsonRpcTest {
     }
 
     private NetSocket connect(LinkedBlockingDeque<String> messages) throws Exception {
-        NetClient client = clientVertx.createNetClient();
         CompletableFuture<NetSocket> connected = new CompletableFuture<>();
 
         client.connect(SocketAddress.domainSocketAddress(SOCKET_PATH))

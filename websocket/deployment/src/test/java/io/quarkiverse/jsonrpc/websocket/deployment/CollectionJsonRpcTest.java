@@ -10,14 +10,14 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import io.quarkiverse.jsonrpc.app.CollectionResource;
 import io.quarkiverse.jsonrpc.app.Pojo;
 import io.quarkiverse.jsonrpc.app.Pojo2;
-import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.QuarkusExtensionTest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 public class CollectionJsonRpcTest extends JsonRpcParent {
 
     @RegisterExtension
-    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot(root -> {
                 root.addClasses(CollectionResource.class, Pojo.class, Pojo2.class);
             });

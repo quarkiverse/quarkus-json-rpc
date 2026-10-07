@@ -18,14 +18,14 @@ import io.quarkiverse.jsonrpc.app.Pojo;
 import io.quarkiverse.jsonrpc.app.Pojo2;
 import io.quarkiverse.jsonrpc.app.PojoResource;
 import io.quarkiverse.jsonrpc.app.VoidResource;
-import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.QuarkusExtensionTest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 public class OpenRPCJsonRpcTest extends JsClientTestBase {
 
     @RegisterExtension
-    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class, PojoResource.class,
                         Pojo.class, Pojo2.class, BasePojo.class, ChildPojo.class,

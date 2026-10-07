@@ -7,12 +7,11 @@ import java.util.function.BiConsumer;
 
 import org.jboss.logging.Logger;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 import io.quarkiverse.jsonrpc.runtime.JsonRPCConnection;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
 
 public class JsonRPCCodec {
     private static final Logger LOG = Logger.getLogger(JsonRPCCodec.class);
@@ -20,15 +19,17 @@ public class JsonRPCCodec {
     private volatile BiConsumer<JsonRPCConnection, String> messageLogListener;
 
     public JsonRPCCodec(ObjectMapper originalObjectMapper) {
-        this.objectMapper = originalObjectMapper.copy(); // we should never change settings of the original ObjectMapper as they could have global impact
-        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        // we should never change settings of the original ObjectMapper as they could have global impact
+        this.objectMapper = originalObjectMapper.rebuild()
+                .enable(SerializationFeature.INDENT_OUTPUT)
+                .build();
     }
 
     public void setMessageLogListener(BiConsumer<JsonRPCConnection, String> listener) {
         this.messageLogListener = listener;
     }
 
-    public JsonNode parseJson(String json) throws JsonProcessingException {
+    public JsonNode parseJson(String json) throws JacksonException {
         return objectMapper.readTree(json);
     }
 
@@ -41,7 +42,7 @@ public class JsonRPCCodec {
             String json = objectMapper.writeValueAsString(response);
             connection.writeTextMessage(json);
             logOutgoing(connection, json);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new RuntimeException(ex);
         }
     }
@@ -51,7 +52,7 @@ public class JsonRPCCodec {
             String json = objectMapper.writeValueAsString(responses);
             connection.writeTextMessage(json);
             logOutgoing(connection, json);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new RuntimeException(ex);
         }
     }
@@ -94,7 +95,7 @@ public class JsonRPCCodec {
             String json = objectMapper.writeValueAsString(notification);
             connection.writeTextMessage(json);
             logOutgoing(connection, json);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             LOG.errorf(ex, "Failed to serialize JSON-RPC notification: method=%s", notification.method);
             throw new RuntimeException(
                     "Failed to serialize JSON-RPC notification for method '" + notification.method + "'", ex);

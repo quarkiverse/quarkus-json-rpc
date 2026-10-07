@@ -20,10 +20,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.logging.Logger;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
-
 import io.quarkiverse.jsonrpc.api.JsonRPCConnected;
 import io.quarkiverse.jsonrpc.api.JsonRPCDisconnected;
 import io.quarkiverse.jsonrpc.api.JsonRPCError;
@@ -45,11 +41,12 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
 import io.smallrye.mutiny.subscription.Cancellable;
 import io.smallrye.mutiny.unchecked.Unchecked;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Context;
-import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.NullNode;
 
 /**
  * Route JsonRPC message to the correct method
@@ -274,7 +271,7 @@ public class JsonRPCRouter {
         if (mode == ExecutionMode.VIRTUAL_THREAD) {
             VirtualThreadSupport.executeBlocking(callable, result);
         } else {
-            vc.executeBlocking(callable).onComplete((Handler<AsyncResult<Object>>) result);
+            vc.executeBlocking(callable).onComplete((Promise<Object>) result);
         }
     }
 
@@ -316,7 +313,7 @@ public class JsonRPCRouter {
             JsonNode jsonNode;
             try {
                 jsonNode = codec.parseJson(message);
-            } catch (JsonProcessingException ex) {
+            } catch (JacksonException ex) {
                 codec.writeResponse(connection,
                         new JsonRPCResponse<>(NullNode.instance,
                                 new JsonRPCResponse.Error(JsonRPCKeys.PARSE_ERROR, "Parse error")));

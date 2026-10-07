@@ -20,7 +20,7 @@ import io.micrometer.core.instrument.Timer;
 import io.quarkiverse.jsonrpc.app.FailingResource;
 import io.quarkiverse.jsonrpc.app.HelloResource;
 import io.quarkiverse.jsonrpc.app.MultiResource;
-import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.QuarkusExtensionTest;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.WebSocket;
@@ -30,7 +30,7 @@ import io.vertx.core.json.JsonObject;
 public class MetricsJsonRpcTest {
 
     @RegisterExtension
-    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot(root -> root.addClasses(
                     HelloResource.class, FailingResource.class, MultiResource.class));
 

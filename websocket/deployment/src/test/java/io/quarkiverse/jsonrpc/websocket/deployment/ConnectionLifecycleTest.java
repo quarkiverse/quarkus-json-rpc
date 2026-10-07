@@ -10,12 +10,12 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 
 import io.quarkiverse.jsonrpc.app.ConnectionObserver;
 import io.quarkiverse.jsonrpc.app.HelloResource;
-import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.QuarkusExtensionTest;
 
 public class ConnectionLifecycleTest extends JsonRpcParent {
 
     @RegisterExtension
-    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot(root -> {
                 root.addClasses(HelloResource.class, ConnectionObserver.class);
             });

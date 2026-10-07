@@ -5,9 +5,7 @@ import org.jboss.logging.Logger;
 import io.quarkiverse.jsonrpc.runtime.JsonRPCRouter;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.vertx.http.runtime.security.QuarkusHttpUser;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
-import io.vertx.core.http.ServerWebSocket;
 import io.vertx.ext.web.RoutingContext;
 
 /**
@@ -33,21 +31,15 @@ public class JsonRPCWebSocket implements Handler<RoutingContext> {
             }
 
             final SecurityIdentity capturedIdentity = identity;
-            event.request().toWebSocket(new Handler<AsyncResult<ServerWebSocket>>() {
-                @Override
-                public void handle(AsyncResult<ServerWebSocket> event) {
-                    if (event.succeeded()) {
-                        ServerWebSocket socket = event.result();
+            event.request().toWebSocket()
+                    .onSuccess(socket -> {
                         WebSocketConnection connection = new WebSocketConnection(socket);
                         jsonRpcRouter.addConnection(connection, capturedIdentity);
                         socket.textMessageHandler(msg -> jsonRpcRouter.handleMessage(connection, msg));
                         socket.closeHandler(v -> jsonRpcRouter.removeConnection(connection));
                         socket.exceptionHandler(err -> LOG.warnf(err, "Error on JSON-RPC WebSocket connection"));
-                    } else {
-                        LOG.error("Failed to connect to json-rpc websocket server", event.cause());
-                    }
-                }
-            });
+                    })
+                    .onFailure(err -> LOG.error("Failed to connect to json-rpc websocket server", err));
             return;
         }
         event.next();

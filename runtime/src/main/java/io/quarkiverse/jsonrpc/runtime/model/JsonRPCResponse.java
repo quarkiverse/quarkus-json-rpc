@@ -1,7 +1,8 @@
 package io.quarkiverse.jsonrpc.runtime.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.JsonNode;
+
+import tools.jackson.databind.JsonNode;
 
 public class JsonRPCResponse<T> {
 
