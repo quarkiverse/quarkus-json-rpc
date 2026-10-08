@@ -13,13 +13,13 @@ import io.quarkiverse.jsonrpc.app.ExceptionMapperResource;
 import io.quarkiverse.jsonrpc.app.MapperBrokenException;
 import io.quarkiverse.jsonrpc.app.OrderNotFoundException;
 import io.quarkiverse.jsonrpc.app.TestExceptionMapper;
-import io.quarkus.test.QuarkusUnitTest;
+import io.quarkus.test.QuarkusExtensionTest;
 import io.vertx.core.json.JsonObject;
 
 public class ExceptionMapperJsonRpcTest extends JsonRpcParent {
 
     @RegisterExtension
-    public static final QuarkusUnitTest test = new QuarkusUnitTest()
+    public static final QuarkusExtensionTest test = new QuarkusExtensionTest()
             .withApplicationRoot(root -> {
                 root.addClasses(ExceptionMapperResource.class, OrderNotFoundException.class,
                         MapperBrokenException.class, TestExceptionMapper.class);

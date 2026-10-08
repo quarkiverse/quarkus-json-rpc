@@ -4,8 +4,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
 import io.quarkiverse.jsonrpc.runtime.config.JsonRPCRuntimeConfig;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCCodec;
@@ -14,6 +12,7 @@ import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
 import io.quarkus.arc.SyntheticCreationalContext;
 import io.quarkus.runtime.RuntimeValue;
 import io.quarkus.runtime.annotations.Recorder;
+import tools.jackson.databind.ObjectMapper;
 
 @Recorder
 public class JsonRPCRecorder {

@@ -25,7 +25,7 @@ mvn test -pl websocket/deployment -Dtest=NormalJsonRpcTest
 mvn clean install -Dnative -pl sample
 ```
 
-Java 17 required. The compiler uses `-parameters` flag for reflection-based parameter name discovery.
+Java 21 required. The compiler uses `-parameters` flag for reflection-based parameter name discovery.
 
 ## Module Structure
 

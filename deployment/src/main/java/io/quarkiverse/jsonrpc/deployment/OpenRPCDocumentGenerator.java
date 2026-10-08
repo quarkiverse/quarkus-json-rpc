@@ -19,14 +19,14 @@ import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.ParameterizedType;
 import org.jboss.jandex.Type;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethod;
 import io.quarkiverse.jsonrpc.runtime.model.JsonRPCMethodName;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 public class OpenRPCDocumentGenerator {
 
@@ -70,7 +70,7 @@ public class OpenRPCDocumentGenerator {
         this.schemaSimpleNames = schemaSimpleNames;
         this.title = title;
         this.version = version;
-        this.mapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
+        this.mapper = JsonMapper.builder().enable(SerializationFeature.INDENT_OUTPUT).build();
     }
 
     public String generate(Map<JsonRPCMethodName, JsonRPCMethod> methodsMap) {
@@ -104,7 +104,7 @@ public class OpenRPCDocumentGenerator {
 
         try {
             return mapper.writeValueAsString(root);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("Failed to serialize OpenRPC document", e);
         }
     }
@@ -271,7 +271,7 @@ public class OpenRPCDocumentGenerator {
             case "java.math.BigInteger":
                 return schemaWith("integer", null);
             case "java.lang.Object":
-            case "com.fasterxml.jackson.databind.JsonNode":
+            case "tools.jackson.databind.JsonNode":
                 return mapper.createObjectNode();
         }
 

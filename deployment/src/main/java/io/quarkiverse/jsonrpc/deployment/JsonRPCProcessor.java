@@ -26,8 +26,6 @@ import org.jboss.jandex.JandexReflection;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.Type;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import io.quarkiverse.jsonrpc.api.JsonRPCBroadcaster;
 import io.quarkiverse.jsonrpc.api.JsonRPCExceptionMapper;
 import io.quarkiverse.jsonrpc.deployment.config.JsonRPCConfig;
@@ -52,8 +50,9 @@ import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
 import io.quarkus.deployment.builditem.FeatureBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
+import io.quarkus.deployment.execannotations.ExecutionModelAnnotationsAllowedBuildItem;
 import io.quarkus.deployment.metrics.MetricsCapabilityBuildItem;
-import io.quarkus.devui.spi.JsonRPCProvidersBuildItem;
+import io.quarkus.devjsonrpc.spi.JsonRPCProvidersBuildItem;
 import io.quarkus.devui.spi.page.CardPageBuildItem;
 import io.quarkus.devui.spi.page.FooterPageBuildItem;
 import io.quarkus.devui.spi.page.Page;
@@ -61,6 +60,7 @@ import io.quarkus.smallrye.health.deployment.spi.HealthBuildItem;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.NonBlocking;
 import io.smallrye.common.annotation.RunOnVirtualThread;
+import tools.jackson.databind.ObjectMapper;
 
 public class JsonRPCProcessor {
     private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(JsonRPCProcessor.class);
@@ -80,6 +80,15 @@ public class JsonRPCProcessor {
         // Make ArC discover the beans marked with the @JsonRPCApi qualifier
         beanDefiningAnnotationProducer
                 .produce(new BeanDefiningAnnotationBuildItem(JSON_RPC_API, BuiltinScope.SINGLETON.getName()));
+    }
+
+    @BuildStep
+    ExecutionModelAnnotationsAllowedBuildItem allowExecutionModelAnnotations() {
+        // Public methods on a @JsonRPCApi class are entrypoints invoked by the JsonRPCRouter,
+        // so @Blocking / @NonBlocking are legitimate there
+        return new ExecutionModelAnnotationsAllowedBuildItem(method -> !method.name().equals(CONSTRUCTOR)
+                && Modifier.isPublic(method.flags())
+                && method.declaringClass().hasDeclaredAnnotation(JSON_RPC_API));
     }
 
     @BuildStep
@@ -388,7 +397,10 @@ public class JsonRPCProcessor {
         return card;
     }
 
-    @BuildStep(onlyIf = IsLocalDevelopment.class)
+    // Not gated on IsLocalDevelopment: Quarkus also uses this build item to discover valid usages of
+    // execution model annotations (@NonBlocking here), which is checked in every launch mode.
+    // The dev-only effects are gated on the Quarkus side.
+    @BuildStep
     JsonRPCProvidersBuildItem createDevUIJsonRPCService() {
         return new JsonRPCProvidersBuildItem(JsonRPCDevUIService.class);
     }
