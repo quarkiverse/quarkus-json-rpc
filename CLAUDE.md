@@ -74,7 +74,7 @@ This follows the standard Quarkus extension split:
 
 ## Testing Patterns
 
-Most tests live in `websocket/deployment/src/test/java/` and use `QuarkusUnitTest` with Vert.x `WebSocketClient`. (The core `deployment` module holds only build-time validation tests.)
+Most tests live in `websocket/deployment/src/test/java/` and use `QuarkusExtensionTest` with Vert.x `WebSocketClient`. (The core `deployment` module holds only build-time validation tests.)
 
 - `JsonRpcParent` is the base class providing WebSocket client utilities (`getJsonRpcResponse()` methods)
 - Tests register application classes via `withApplicationRoot()` and send JSON-RPC messages over WebSocket
