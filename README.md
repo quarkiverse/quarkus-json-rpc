@@ -25,6 +25,14 @@ Add the transport you want — it pulls in the core automatically. For WebSocket
 
 For a Unix domain socket instead, use `quarkus-json-rpc-domain-socket`.
 
+| JSON-RPC version | Quarkus version |
+| ---------------- | --------------- |
+| 1.x              | 3.35.4+         |
+| 2.x              | 3.35.4+         |
+| 3.x              | 4.0.0.Beta1+    |
+
+3.x targets Quarkus 4 and requires JDK 21. If you are still on Quarkus 3, stay on 2.x, which is maintained from the `2.x` branch.
+
 ### 2. Create your API
 
 ```java
