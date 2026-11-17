@@ -1,0 +1,49 @@
+= Java Client
+:extensions: io.quarkiverse.json-rpc:quarkus-json-rpc-websocket
+
+include::./includes/attributes.adoc[]
+
+`JsonRPCClient` calls JSON-RPC methods over WebSocket from Java, for example from another application or an integration test. It ships with the `quarkus-json-rpc-websocket` extension. One client holds one WebSocket connection, and all calls and subscriptions share it.
+
+== Connecting
+
+[source,java]
+----
+@Inject
+Vertx vertx;
+
+try (JsonRPCClient client = JsonRPCClient.connect(vertx, URI.create("ws://localhost:8080/json-rpc"))) {
+    // ...
+}
+----
+
+`connect` blocks until the connection is open, so don't call it on the event loop. On the event loop, use `connectAsync`, which returns a `Uni<JsonRPCClient>`. An overload takes the `ObjectMapper` to use and the timeout for blocking calls (default 30 seconds).
+
+== Calling Methods
+
+Method names use the same `Scope#method` format as the server. Pass parameters by name with a `Map`, or by position as trailing arguments:
+
+[source,java]
+----
+String a = client.call("GreetingService#hello", Map.of("name", "World"), String.class);
+String b = client.call("GreetingService#hello", String.class, "World");
+
+Uni<Pojo> c = client.callAsync("PojoService#pojo", Map.of("name", "World"), Pojo.class);
+----
+
+Results are deserialized with Jackson into the given type. When the server answers with a JSON-RPC error, the call throws (or the `Uni` fails with) a `JsonRPCClientException`, which carries the error `code`, `message` and `data`.
+
+`client.notify("Scope#method", params...)` sends a notification, which is a request with no response.
+
+== Subscribing to Streams
+
+Methods that return `Multi` are consumed with `subscribe`:
+
+[source,java]
+----
+client.subscribe("TickerService#ticks", String.class)
+        .select().first(10)
+        .subscribe().with(System.out::println);
+----
+
+When the server completes or fails the stream, the `Multi` completes or fails too. If you cancel the `Multi`, the client sends `unsubscribe` so the server stops the stream.
